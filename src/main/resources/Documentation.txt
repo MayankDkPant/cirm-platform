@@ -1,0 +1,9 @@
+entity → Database models
+
+repository → JPA layer
+
+service → Business logic
+
+controller → REST endpoints
+
+ai → External AI integration layer

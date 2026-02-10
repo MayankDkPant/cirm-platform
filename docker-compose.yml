@@ -1,0 +1,62 @@
+
+services:
+
+  postgres:
+    image: postgres:15
+    container_name: cirm-postgres
+    environment:
+      POSTGRES_DB: cirm
+      POSTGRES_USER: cirm_user
+      POSTGRES_PASSWORD: cirm_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama
+    container_name: cirm-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+  ai:
+    build:
+      context: ../ai-service
+      dockerfile: Dockerfile
+    container_name: cirm-ai
+    depends_on:
+      - ollama
+    ports:
+      - "8000:8000"
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cirm-backend
+    depends_on:
+      - postgres
+      - ai
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cirm
+      SPRING_DATASOURCE_USERNAME: cirm_user
+      SPRING_DATASOURCE_PASSWORD: cirm_pass
+      AI_SERVICE_URL: http://ai:8000
+      SALESFORCE_CLIENT_ID: 3MVG97L7PWbPq6Uz8ZKeySjFUHPWxO5WeYlllYhVqx5pDRNJjToMAFNuXBlWxQu9.HS9Bf95SmJa8ogP6VB19
+      SALESFORCE_USERNAME: mayank@cirmorg.com
+      SALESFORCE_LOGIN_URL: https://login.salesforce.com
+      SALESFORCE_PRIVATE_KEY_PATH: classpath:keys/salesforce.key
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  ollama_data:
