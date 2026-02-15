@@ -1,74 +1,79 @@
 package com.cirm.platform.complaint.service;
 
 import com.cirm.platform.complaint.entity.Complaint;
+import com.cirm.platform.complaint.entity.ComplaintEvent;
 import com.cirm.platform.complaint.entity.enums.ComplaintStatus;
 import com.cirm.platform.complaint.repository.ComplaintRepository;
-
-import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
-
+import com.cirm.platform.complaint.repository.ComplaintEventRepository;
+import com.cirm.platform.complaint.event.ComplaintCreatedEvent;
 import com.cirm.platform.ai.AiClient;
 import com.cirm.platform.ai.AiClassificationResponse;
 
-import  com.cirm.platform.complaint.port.*;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDateTime;
 import java.util.List;
-
-
+import java.util.UUID;
 
 @Service
 public class ComplaintService {
 
     private final ComplaintRepository complaintRepository;
+    private final ComplaintEventRepository complaintEventRepository;
     private final AiClient aiClient;
-    private final CaseManagementPort caseManagementPort;
+    private final ApplicationEventPublisher eventPublisher;
 
+    public ComplaintService(
+            ComplaintRepository complaintRepository,
+            ComplaintEventRepository complaintEventRepository,
+            AiClient aiClient,
+            ApplicationEventPublisher eventPublisher) {
 
-    public ComplaintService(ComplaintRepository complaintRepository,
-                            AiClient aiClient,
-                            CaseManagementPort caseManagementPort) {
         this.complaintRepository = complaintRepository;
-        this.aiClient  = aiClient;
-        this.caseManagementPort = caseManagementPort;
+        this.complaintEventRepository = complaintEventRepository;
+        this.aiClient = aiClient;
+        this.eventPublisher = eventPublisher;
     }
 
+    @Transactional
     public Complaint createComplaint(Complaint complaint) {
-        System.out.println("SERVICE METHOD EXECUTED");
-        System.out.println("complaint.getStatus() = " + complaint.getStatus());
 
-        // Default status if not provided
+        // 1️⃣ Default status
         if (complaint.getStatus() == null) {
             complaint.setStatus(ComplaintStatus.OPEN);
         }
 
-        complaint.setCreatedAt(LocalDateTime.now());
-        complaint.setUpdatedAt(LocalDateTime.now());
+        // 2️⃣ External sync metadata
+        complaint.setExternalSystem("SALESFORCE");
+        complaint.setExternalSyncStatus("PENDING");
 
-        // 1 AI Classification
+        // 3️⃣ AI Classification
         AiClassificationResponse aiResponse =
                 aiClient.classify(complaint.getDescription());
 
-        // Enrich complaint
         complaint.setDepartment(aiResponse.getDepartment());
         complaint.setPriority(aiResponse.getPriority());
 
-        System.out.println("AI Department: " + aiResponse.getDepartment());
-        System.out.println("AI Priority: " + aiResponse.getPriority());
-
-        // 2 Save locally
+        // 4️⃣ Save complaint
         Complaint savedComplaint = complaintRepository.save(complaint);
 
-        // 3 Call port (NOT Salesforce directly)
-        CaseRequest caseRequest = new CaseRequest(
-                "Complaint - " + savedComplaint.getDepartment(),
-                savedComplaint.getDescription(),
-                savedComplaint.getDepartment(),
-                savedComplaint.getPriority(),
-                null    
+        // 5️⃣ Record event
+        complaintEventRepository.save(
+                ComplaintEvent.builder()
+                        .complaintId(savedComplaint.getId())
+                        .eventType("CREATED")
+                        .newValue("OPEN")
+                        .triggeredBy("USER")
+                        .build()
         );
-        caseManagementPort.createCase(caseRequest);
+
+        // 6️⃣ Publish domain event
+        eventPublisher.publishEvent(
+                new ComplaintCreatedEvent(savedComplaint.getId())
+        );
 
         return savedComplaint;
     }
@@ -76,11 +81,24 @@ public class ComplaintService {
     public List<Complaint> getAllComplaints() {
         return complaintRepository.findAll();
     }
-    
-public Complaint getComplaintById(Long id) {
-    return complaintRepository.findById(id)
-            .orElseThrow(() ->
-                    new ResponseStatusException(HttpStatus.NOT_FOUND,
-                            "Complaint not found with id " + id));
-}
+
+    public Complaint getComplaintById(UUID id) {
+        return complaintRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Complaint not found with id " + id));
+    }
+
+    private void validateStatusTransition(
+            ComplaintStatus current,
+            ComplaintStatus target) {
+
+        if (current == ComplaintStatus.RESOLVED
+                && target != ComplaintStatus.RESOLVED) {
+
+            throw new IllegalStateException(
+                    "Cannot change status after resolution");
+        }
+    }
 }

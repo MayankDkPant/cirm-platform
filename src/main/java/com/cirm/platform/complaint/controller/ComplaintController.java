@@ -5,6 +5,7 @@ import com.cirm.platform.complaint.service.ComplaintService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/complaints")
@@ -27,7 +28,7 @@ public class ComplaintController {
     }
 
     @GetMapping("/{id}")
-    public Complaint getComplaintById(@PathVariable Long id) {
+    public Complaint getComplaintById(@PathVariable UUID id) {
     return complaintService.getComplaintById(id);
 }
 

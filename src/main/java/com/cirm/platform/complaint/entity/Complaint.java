@@ -1,45 +1,39 @@
 package com.cirm.platform.complaint.entity;
+
 import jakarta.persistence.*;
 import lombok.*;
-
 import java.time.LocalDateTime;
 
+import com.cirm.platform.common.domain.BaseEntity;
 import com.cirm.platform.complaint.entity.enums.ComplaintStatus;
 
-
 @Entity
-@Table(name = "complaints")
+@Table(name = "complaint")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Complaint {
+public class Complaint extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
 
     private String title;
     private String description;
     private String department;
     private String priority;
-    
+
     @Enumerated(EnumType.STRING)
     private ComplaintStatus status;
 
+    // Geo
+    private Double latitude;
+    private Double longitude;
 
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+    // External system tracking
+    private String externalSystem;         // Case management system 
+    private String externalReferenceId;    // Case ID
+    private String externalSyncStatus;     // PENDING, SUCCESS, FAILED
 
-    @PrePersist
-    public void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    }
+    private LocalDateTime resolvedAt;
 
-    @PreUpdate
-    public void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }   
 }

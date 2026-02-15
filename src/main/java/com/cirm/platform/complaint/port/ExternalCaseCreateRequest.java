@@ -1,9 +1,9 @@
 package com.cirm.platform.complaint.port;
 
-public record CaseRequest(
+public record ExternalCaseCreateRequest(
         String subject,
         String description,
         String category,
-        String priority,
-        String citizenId
+        String priority
+       // String citizenId
 ) {}

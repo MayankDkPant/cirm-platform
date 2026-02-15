@@ -7,3 +7,41 @@ service → Business logic
 controller → REST endpoints
 
 ai → External AI integration layer
+
+spring.jpa.hibernate.ddl-auto=update
+
+salesforce.client-id=3MVG97L7PWbPq6Uz8ZKeySjFUHPWxO5WeYlllYhVqx5pDRNJjToMAFNuXBlWxQu9.HS9Bf95SmJa8ogP6VB19
+salesforce.username=mayank@cirmorg.com
+salesforce.login-url=https://login.salesforce.com
+salesforce.private-key-path=classpath:keys/salesforce.key
+
+complaint/
+	Controller - ComplaintController.createcomplaint 1. 
+    entity/
+    service - ComplaintService.createComplaint() 2.
+    event - ComplaintCreatedEvent 3. 
+    listener - ExternalCaseSyncListener 4. 
+    repository (interface)
+    port - ExternalCasePort 5. 
+
+
+    integrations/salesforce/adapter - SalesforceExternalCaseAdapter 6. 
+    integrations/salesfforce/dto - CreateCaseSfRequest 7. 
+
+    Mobile
+   ↓
+ComplaintController
+   ↓
+ComplaintService  (Domain Logic)
+   ↓
+DB Save + Event
+   ↓
+Spring Event System
+   ↓
+ExternalCaseSyncListener
+   ↓
+ExternalCasePort (Interface)
+   ↓
+SalesforceExternalCaseAdapter
+   ↓
+Salesforce API
