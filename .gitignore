@@ -38,6 +38,6 @@ src/main/resources/keys/private_key.pem
 
 # Secrets / keys
 src/main/resources/keys/
-*.pem
+*.cl
 *.key
 
