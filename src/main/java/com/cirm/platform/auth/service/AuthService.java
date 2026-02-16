@@ -5,6 +5,7 @@ import com.cirm.platform.auth.domain.User;
 import com.cirm.platform.auth.infrastructure.persistence.RefreshTokenRepository;
 import com.cirm.platform.auth.infrastructure.persistence.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.*;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
+@Profile("auth")
 @Service
 @RequiredArgsConstructor
 public class AuthService {

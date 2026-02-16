@@ -5,7 +5,10 @@ import lombok.*;
 
 import java.time.Instant;
 import java.util.UUID;
+import org.springframework.context.annotation.Profile;
 
+
+@Profile("auth")
 @Entity
 @Table(name = "refresh_tokens")
 @Getter

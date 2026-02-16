@@ -1,11 +1,23 @@
-package com.cirm.platform.ai;
+package com.cirm.platform.ai.client;
 
-import org.springframework.http.*;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Map;
 
+/**
+ * Client responsible for communicating with the external Python AI service.
+ *
+ * This class acts as an infrastructure adapter between the Java backend
+ * and the AI microservice running in Docker.
+ *
+ * Responsibilities:
+ * - Send requests to AI service
+ * - Handle failures and provide fallback response
+ *
+ * This class MUST NOT contain business logic.
+ */
 @Component
 public class AiClient {
 
@@ -34,14 +46,12 @@ public class AiClient {
             return response.getBody();
 
         } catch (Exception e) {
-
-            // Fallback if AI fails
+            // AI fallback response when service is unavailable
             AiClassificationResponse fallback = new AiClassificationResponse();
             fallback.setIntent("COMPLAINT");
             fallback.setDepartment("OTHER");
             fallback.setPriority("MEDIUM");
             fallback.setConfidence(0.5);
-
             return fallback;
         }
     }

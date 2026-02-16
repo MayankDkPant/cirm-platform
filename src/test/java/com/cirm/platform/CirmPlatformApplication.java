@@ -5,14 +5,19 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
-/**
- * Main Spring Boot application.
- *
- * Now scans ALL platform modules (admin, auth, complaint, ai, integration).
- */
 @SpringBootApplication
-@EntityScan(basePackages = "com.cirm.platform")
-@EnableJpaRepositories(basePackages = "com.cirm.platform")
+
+// Scan ONLY modules we have migrations for
+@EntityScan(basePackages = {
+        "com.cirm.platform.admin.domain",
+        "com.cirm.platform.integration.domain"
+})
+
+// Scan ONLY repositories from these modules
+@EnableJpaRepositories(basePackages = {
+        "com.cirm.platform.admin.repository",
+        "com.cirm.platform.integration.repository"
+})
 public class CirmPlatformApplication {
 
     public static void main(String[] args) {

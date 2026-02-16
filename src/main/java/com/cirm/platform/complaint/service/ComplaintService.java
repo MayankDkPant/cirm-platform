@@ -1,15 +1,15 @@
 package com.cirm.platform.complaint.service;
 
+import com.cirm.platform.ai.client.AiClassificationResponse;
+import com.cirm.platform.ai.service.AiClassificationService;
 import com.cirm.platform.complaint.entity.Complaint;
 import com.cirm.platform.complaint.entity.ComplaintEvent;
 import com.cirm.platform.complaint.entity.enums.ComplaintStatus;
-import com.cirm.platform.complaint.repository.ComplaintRepository;
-import com.cirm.platform.complaint.repository.ComplaintEventRepository;
 import com.cirm.platform.complaint.event.ComplaintCreatedEvent;
-import com.cirm.platform.ai.AiClient;
-import com.cirm.platform.ai.AiClassificationResponse;
-
+import com.cirm.platform.complaint.repository.ComplaintEventRepository;
+import com.cirm.platform.complaint.repository.ComplaintRepository;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,49 +18,75 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Service responsible for complaint lifecycle management.
+ *
+ * Responsibilities:
+ * - Create complaints
+ * - Enrich complaints using AI classification
+ * - Persist complaint events
+ * - Publish domain events for integrations (Salesforce, notifications, etc.)
+ *
+ * NOTE:
+ * This service uses AiClassificationService instead of directly calling AI.
+ * This keeps the complaint domain isolated from external integrations.
+ */
 @Service
+@Profile("complaint")
 public class ComplaintService {
 
     private final ComplaintRepository complaintRepository;
     private final ComplaintEventRepository complaintEventRepository;
-    private final AiClient aiClient;
+    private final AiClassificationService aiClassificationService;
     private final ApplicationEventPublisher eventPublisher;
 
     public ComplaintService(
             ComplaintRepository complaintRepository,
             ComplaintEventRepository complaintEventRepository,
-            AiClient aiClient,
+            AiClassificationService aiClassificationService,
             ApplicationEventPublisher eventPublisher) {
 
         this.complaintRepository = complaintRepository;
         this.complaintEventRepository = complaintEventRepository;
-        this.aiClient = aiClient;
+        this.aiClassificationService = aiClassificationService;
         this.eventPublisher = eventPublisher;
     }
 
+    /**
+     * Creates a new complaint.
+     *
+     * Flow:
+     * 1) Apply defaults
+     * 2) Use AI to auto-classify complaint text
+     * 3) Persist complaint
+     * 4) Record complaint event
+     * 5) Publish domain event for external integrations
+     */
     @Transactional
     public Complaint createComplaint(Complaint complaint) {
 
-        // 1️⃣ Default status
+        // Default status
         if (complaint.getStatus() == null) {
             complaint.setStatus(ComplaintStatus.OPEN);
         }
 
-        // 2️⃣ External sync metadata
+        // External sync metadata
         complaint.setExternalSystem("SALESFORCE");
         complaint.setExternalSyncStatus("PENDING");
 
-        // 3️⃣ AI Classification
+        // AI Classification via AI Service layer
         AiClassificationResponse aiResponse =
-                aiClient.classify(complaint.getDescription());
+                aiClassificationService.classifyComplaint(
+                        complaint.getDescription()
+                );
 
         complaint.setDepartment(aiResponse.getDepartment());
         complaint.setPriority(aiResponse.getPriority());
 
-        // 4️⃣ Save complaint
+        // Save complaint
         Complaint savedComplaint = complaintRepository.save(complaint);
 
-        // 5️⃣ Record event
+        // Record event in complaint_event table
         complaintEventRepository.save(
                 ComplaintEvent.builder()
                         .complaintId(savedComplaint.getId())
@@ -70,7 +96,7 @@ public class ComplaintService {
                         .build()
         );
 
-        // 6️⃣ Publish domain event
+        // Publish domain event for integrations
         eventPublisher.publishEvent(
                 new ComplaintCreatedEvent(savedComplaint.getId())
         );
