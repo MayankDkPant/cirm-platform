@@ -8,8 +8,6 @@ controller → REST endpoints
 
 ai → External AI integration layer
 
-spring.jpa.hibernate.ddl-auto=update
-
 salesforce.client-id=3MVG97L7PWbPq6Uz8ZKeySjFUHPWxO5WeYlllYhVqx5pDRNJjToMAFNuXBlWxQu9.HS9Bf95SmJa8ogP6VB19
 salesforce.username=mayank@cirmorg.com
 salesforce.login-url=https://login.salesforce.com
@@ -45,3 +43,6 @@ ExternalCasePort (Interface)
 SalesforceExternalCaseAdapter
    ↓
 Salesforce API
+
+
+Check later why v1 empty file helps in ci cd.

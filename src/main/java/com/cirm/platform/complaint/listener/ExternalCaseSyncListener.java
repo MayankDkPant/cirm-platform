@@ -7,9 +7,11 @@ import com.cirm.platform.complaint.repository.*;
 import com.cirm.platform.complaint.port.*;
 import com.cirm.platform.complaint.entity.Complaint;
 import com.cirm.platform.complaint.event.ComplaintCreatedEvent;
+import org.springframework.context.annotation.Profile;
 
 
 
+@Profile("complaint")  
 @Component
 @RequiredArgsConstructor
 public class ExternalCaseSyncListener {

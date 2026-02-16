@@ -6,6 +6,10 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
+import org.springframework.context.annotation.Profile;
+
+
+@Profile("complaint")
 
 @RestController
 @RequestMapping("/complaints")
