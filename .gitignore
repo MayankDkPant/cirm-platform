@@ -33,3 +33,11 @@ build/
 .vscode/
 
 src/main/resources/keys/private_key.pem
+
+.DS_Store
+
+# Secrets / keys
+src/main/resources/keys/
+*.pem
+*.key
+
