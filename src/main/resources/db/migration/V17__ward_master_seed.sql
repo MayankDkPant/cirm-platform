@@ -1,0 +1,123 @@
+-- ============================================================
+-- V17 : Seed Wards (Dehradun Municipal Corporation)
+-- Uses canonical hierarchy:
+-- GoverningBody → Zone → Ward
+-- Ward Code format : UK-DDN07-Z01-W01
+-- ============================================================
+
+WITH gb AS (
+    SELECT id FROM governing_body WHERE "Code__c"='UK-DDN07-MC'
+),
+zones AS (
+    SELECT id,"Code__c"
+    FROM zone
+    WHERE governing_body_id = (SELECT id FROM gb)
+)
+
+INSERT INTO ward (id, governing_body_id, zone_id, name, "Code__c")
+SELECT uuid_generate_v4(), gb.id, z.id, v.name, v.code
+FROM gb
+CROSS JOIN (
+VALUES
+('UK-DDN07-Z02','UK-DDN07-Z02-W01','Harrawala'),
+('UK-DDN07-Z03','UK-DDN07-Z03-W01','Nakronda'),
+('UK-DDN07-Z02','UK-DDN07-Z02-W02','Chak Tunwala Miyanwala'),
+('UK-DDN07-Z02','UK-DDN07-Z02-W03','Nawada'),
+('UK-DDN07-Z07','UK-DDN07-Z07-W01','Mohbewala'),
+('UK-DDN07-Z03','UK-DDN07-Z03-W02','Balawala'),
+('UK-DDN07-Z07','UK-DDN07-Z07-W02','Bharuwala Grant'),
+('UK-DDN07-Z02','UK-DDN07-Z02-W04','Mothrowala'),
+('UK-DDN07-Z02','UK-DDN07-Z02-W05','Mohkampur'),
+('UK-DDN07-Z02','UK-DDN07-Z02-W06','Defence Colony'),
+('UK-DDN07-Z02','UK-DDN07-Z02-W07','Banjarowala'),
+('UK-DDN07-Z03','UK-DDN07-Z03-W03','Nathanpur - 2'),
+('UK-DDN07-Z02','UK-DDN07-Z02-W08','Shah Nagar'),
+('UK-DDN07-Z03','UK-DDN07-Z03-W04','Nathuwawala'),
+('UK-DDN07-Z07','UK-DDN07-Z07-W03','Chanderbani'),
+('UK-DDN07-Z06','UK-DDN07-Z06-W01','Lohia Nagar'),
+('UK-DDN07-Z03','UK-DDN07-Z03-W05','Nathanpur - 1'),
+('UK-DDN07-Z03','UK-DDN07-Z03-W06','Nehrugram'),
+('UK-DDN07-Z02','UK-DDN07-Z02-W09','Ajabpur Saraswati Vihar'),
+('UK-DDN07-Z03','UK-DDN07-Z03-W07','Rajeev Nagar'),
+('UK-DDN07-Z03','UK-DDN07-Z03-W08','Nehru Colony'),
+('UK-DDN07-Z02','UK-DDN07-Z02-W10','VCSG Ajabpur'),
+('UK-DDN07-Z06','UK-DDN07-Z06-W02','Majra'),
+('UK-DDN07-Z02','UK-DDN07-Z02-W11','Mata Mandir Road'),
+('UK-DDN07-Z02','UK-DDN07-Z02-W12','Dehrakhas'),
+('UK-DDN07-Z02','UK-DDN07-Z02-W13','Dharampur'),
+('UK-DDN07-Z06','UK-DDN07-Z06-W03','Bhrampuri'),
+('UK-DDN07-Z06','UK-DDN07-Z06-W04','Pithuwala'),
+('UK-DDN07-Z02','UK-DDN07-Z02-W14','Vidya Vihar'),
+('UK-DDN07-Z03','UK-DDN07-Z03-W09','Dalanwala East'),
+('UK-DDN07-Z06','UK-DDN07-Z06-W05','Niranjanpur'),
+('UK-DDN07-Z02','UK-DDN07-Z02-W15','Race Cource North'),
+('UK-DDN07-Z02','UK-DDN07-Z02-W16','Patel Nagar East'),
+('UK-DDN07-Z03','UK-DDN07-Z03-W10','Dalanwala South'),
+('UK-DDN07-Z06','UK-DDN07-Z06-W06','Indrapuram'),
+('UK-DDN07-Z06','UK-DDN07-Z06-W07','Mehuwala - 2/ Harbajwala'),
+('UK-DDN07-Z01','UK-DDN07-Z01-W01','Reetha Mandi'),
+('UK-DDN07-Z03','UK-DDN07-Z03-W11','Chandar Road MDDA'),
+('UK-DDN07-Z03','UK-DDN07-Z03-W12','Vani Vihar'),
+('UK-DDN07-Z06','UK-DDN07-Z06-W08','Seemadwar'),
+('UK-DDN07-Z02','UK-DDN07-Z02-W17','Rest Camp'),
+('UK-DDN07-Z01','UK-DDN07-Z01-W02','Patel Nagar West'),
+('UK-DDN07-Z01','UK-DDN07-Z01-W03','Gandhi Gram'),
+('UK-DDN07-Z01','UK-DDN07-Z01-W04','Dhamawala'),
+('UK-DDN07-Z01','UK-DDN07-Z01-W05','Jhanda Mohalla'),
+('UK-DDN07-Z01','UK-DDN07-Z01-W06','Indresh Nagar'),
+('UK-DDN07-Z01','UK-DDN07-Z01-W07','Khurbura'),
+('UK-DDN07-Z03','UK-DDN07-Z03-W13','Bhagat Singh Colony'),
+('UK-DDN07-Z06','UK-DDN07-Z06-W09','Drona Puri'),
+('UK-DDN07-Z01','UK-DDN07-Z01-W08','Shivaji Marg'),
+('UK-DDN07-Z03','UK-DDN07-Z03-W14','Ladpur'),
+('UK-DDN07-Z03','UK-DDN07-Z03-W15','Dalanwala North'),
+('UK-DDN07-Z06','UK-DDN07-Z06-W10','Indra Nagar'),
+('UK-DDN07-Z01','UK-DDN07-Z01-W09','Tilak Road'),
+('UK-DDN07-Z02','UK-DDN07-Z02-W18','MKP'),
+('UK-DDN07-Z01','UK-DDN07-Z01-W10','Ghantaghar Kalika Mandir'),
+('UK-DDN07-Z03','UK-DDN07-Z03-W16','Ranjhawala'),
+('UK-DDN07-Z08','UK-DDN07-Z08-W01','Arcedia - 2'),
+('UK-DDN07-Z01','UK-DDN07-Z01-W11','Rispana'),
+('UK-DDN07-Z01','UK-DDN07-Z01-W12','Karanpur'),
+('UK-DDN07-Z01','UK-DDN07-Z01-W13','Chukhuwala'),
+('UK-DDN07-Z04','UK-DDN07-Z04-W01','Nanur Khera'),
+('UK-DDN07-Z06','UK-DDN07-Z06-W11','Pandit Wari'),
+('UK-DDN07-Z06','UK-DDN07-Z06-W12','Govind Garh'),
+('UK-DDN07-Z06','UK-DDN07-Z06-W13','Vijay Park'),
+('UK-DDN07-Z06','UK-DDN07-Z06-W14','Sri Dev Suman Nagar'),
+('UK-DDN07-Z04','UK-DDN07-Z04-W02','Adhoiwala'),
+('UK-DDN07-Z01','UK-DDN07-Z01-W14','Indira Colony'),
+('UK-DDN07-Z04','UK-DDN07-Z04-W03','Danda Lakhond'),
+('UK-DDN07-Z01','UK-DDN07-Z01-W15','Bakralwala'),
+('UK-DDN07-Z01','UK-DDN07-Z01-W16','DL Road'),
+('UK-DDN07-Z01','UK-DDN07-Z01-W17','Dobhalwala'),
+('UK-DDN07-Z06','UK-DDN07-Z06-W15','Basant Vihar'),
+('UK-DDN07-Z04','UK-DDN07-Z04-W04','Aamwala Tarla'),
+('UK-DDN07-Z06','UK-DDN07-Z06-W16','Ballupur'),
+('UK-DDN07-Z01','UK-DDN07-Z01-W18','Vijay Colony'),
+('UK-DDN07-Z01','UK-DDN07-Z01-W19','Arya Nagar'),
+('UK-DDN07-Z06','UK-DDN07-Z06-W17','Kishan Nagar'),
+('UK-DDN07-Z05','UK-DDN07-Z05-W01','Salawala'),
+('UK-DDN07-Z04','UK-DDN07-Z04-W05','Gujrara Mansingh'),
+('UK-DDN07-Z04','UK-DDN07-Z04-W06','Dhoran'),
+('UK-DDN07-Z05','UK-DDN07-Z05-W02','Jakhan'),
+('UK-DDN07-Z05','UK-DDN07-Z05-W03','Vijay Pur'),
+('UK-DDN07-Z05','UK-DDN07-Z05-W04','Rajpur'),
+('UK-DDN07-Z05','UK-DDN07-Z05-W05','Malsi'),
+('UK-DDN07-Z05','UK-DDN07-Z05-W06','Doon Vihar'),
+('UK-DDN07-Z01','UK-DDN07-Z01-W20','Lakhi Bagh'),
+('UK-DDN07-Z06','UK-DDN07-Z06-W18','Yamuna Colony'),
+('UK-DDN07-Z06','UK-DDN07-Z06-W19','Kanwali'),
+('UK-DDN07-Z07','UK-DDN07-Z07-W04','Sewala Kala'),
+('UK-DDN07-Z07','UK-DDN07-Z07-W05','Mehuwala - 1'),
+('UK-DDN07-Z02','UK-DDN07-Z02-W19','Kedarpur'),
+('UK-DDN07-Z02','UK-DDN07-Z02-W20','Deep Nagar'),
+('UK-DDN07-Z06','UK-DDN07-Z06-W20','Arcedia 1'),
+('UK-DDN07-Z03','UK-DDN07-Z03-W17','Dobhal Chowk'),
+('UK-DDN07-Z03','UK-DDN07-Z03-W18','Raipur'),
+('UK-DDN07-Z06','UK-DDN07-Z06-W21','Kaulagarh'),
+('UK-DDN07-Z07','UK-DDN07-Z07-W06','Turner Road'),
+('UK-DDN07-Z03','UK-DDN07-Z03-W19','Badrish Colony'),
+('UK-DDN07-Z02','UK-DDN07-Z02-W21','Race Cource South')
+) v(zone_code,code,name)
+JOIN zones z ON z."Code__c" = v.zone_code;
