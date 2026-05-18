@@ -1,12 +1,21 @@
 package com.cirm.platform.complaint.repository;
 
-import com.cirm.platform.complaint.entity.ComplaintEvent;
-import org.springframework.data.jpa.repository.JpaRepository;
+import com.cirm.platform.complaint.domain.ComplaintEvent;
+import org.springframework.data.repository.Repository;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
-import org.springframework.context.annotation.Profile;
 
-@Profile("complaint")  
+/**
+ * Do not add update/delete methods. This table is append-only.
+ */
 public interface ComplaintEventRepository 
-        extends JpaRepository<ComplaintEvent, UUID> {
+        extends Repository<ComplaintEvent, UUID> {
+
+    ComplaintEvent save(ComplaintEvent event);
+
+    Optional<ComplaintEvent> findById(UUID id);
+
+    List<ComplaintEvent> findByComplaintId(UUID complaintId);
 }

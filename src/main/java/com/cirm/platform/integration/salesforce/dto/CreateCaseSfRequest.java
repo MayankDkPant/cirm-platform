@@ -22,10 +22,21 @@ public record CreateCaseSfRequest(
         String department,
 
         @JsonProperty("Priority")
-        String priority
+        String priority,
+
+        @JsonProperty("Municipality_External_Id__c")
+        String municipalityExternalId,
+
+        @JsonProperty("Ward_External_Id__c")
+        String wardExternalId,
+
+        @JsonProperty("Zone_External_Id__c")
+        String zoneExternalId,
+
+        @JsonProperty("Department_External_Id__c")
+        String departmentExternalId
 
         
 ) {}
-
 
 

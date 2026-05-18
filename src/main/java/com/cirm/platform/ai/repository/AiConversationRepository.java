@@ -1,7 +1,7 @@
 package com.cirm.platform.ai.repository;
 
 import com.cirm.platform.ai.domain.enums.ConversationStatus;
-import com.cirm.platform.ai.entity.AiConversation;
+import com.cirm.platform.ai.domain.AiConversation;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -15,13 +15,15 @@ import java.util.UUID;
  * This repository is used by the AI chat service to:
  * - Create new conversation sessions
  * - Fetch active conversations for a user
- * - Support multi-tenant filtering by municipality
+ * - Support multi-tenant filtering by governing body
  *
  * No business logic should live here. Only data access.
  */
 public interface AiConversationRepository extends JpaRepository<AiConversation, UUID> {
 
-    Optional<AiConversation> findByIdAndMunicipalityId(UUID id, UUID municipalityId);
+    List<AiConversation> findByGoverningBodyId(UUID governingBodyId);
+
+    Optional<AiConversation> findByIdAndGoverningBodyId(UUID id, UUID governingBodyId);
 
     List<AiConversation> findByUserIdAndStatus(UUID userId, ConversationStatus status);
 }

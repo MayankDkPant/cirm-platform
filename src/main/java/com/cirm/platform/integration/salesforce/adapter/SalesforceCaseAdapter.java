@@ -4,10 +4,11 @@ import com.cirm.platform.complaint.port.ExternalCasePort;
 import com.cirm.platform.complaint.port.ExternalCaseCreateRequest;
 import com.cirm.platform.complaint.port.ExternalCaseUpdateRequest;
 import com.cirm.platform.integration.salesforce.client.SalesforceClient;
-import com.cirm.platform.integration.salesforce.dto.CreateCaseSfRequest;
 import com.cirm.platform.integration.salesforce.dto.UpdateCaseSfRequest;
 import com.cirm.platform.integration.salesforce.mapper.SalesforceCaseMapper;
 import org.springframework.stereotype.Component;
+
+import java.util.Map;
 
 @Component
 public class SalesforceCaseAdapter implements ExternalCasePort {
@@ -23,10 +24,11 @@ public class SalesforceCaseAdapter implements ExternalCasePort {
 
     @Override
     public String createCase(ExternalCaseCreateRequest request) {
+        return salesforceClient.createCase(mapper.toSalesforceRequest(request));
+    }
 
-        CreateCaseSfRequest sfRequest = mapper.toSalesforceRequest(request);
-
-        return salesforceClient.createCase(sfRequest);
+    public String createCase(Map<String, Object> payload) {
+        return salesforceClient.createCase(payload);
     }
     @Override
     public void updateCase(String caseId, ExternalCaseUpdateRequest request) {
@@ -36,5 +38,4 @@ public class SalesforceCaseAdapter implements ExternalCasePort {
     }
 
 }
-
 

@@ -1,14 +1,13 @@
 package com.cirm.platform.auth.domain;
 
+import com.cirm.platform.common.domain.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.Instant;
-import java.util.UUID;
-import org.springframework.context.annotation.Profile;
 
-
-@Profile("auth")
+/**
+ * Domain entity representing user.
+ */
 @Entity
 @Table(name = "users")
 @Getter
@@ -16,11 +15,7 @@ import org.springframework.context.annotation.Profile;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class User {
-
-    @Id
-    @GeneratedValue
-    private UUID id;
+public class User extends BaseEntity {
 
     @Column(nullable = false, unique = true)
     private String email;
@@ -30,16 +25,7 @@ public class User {
     private Role role;
 
     @Column(nullable = false)
-    private boolean enabled;
-
-    @Column(nullable = false)
-    private Instant createdAt;
-
-    @PrePersist
-    public void prePersist() {
-        this.createdAt = Instant.now();
-        this.enabled = true;
-    }
+    private boolean enabled = true;
 
     public enum Role {
         CITIZEN

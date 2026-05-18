@@ -1,7 +1,5 @@
 package com.cirm.platform.complaint.port;
-import org.springframework.context.annotation.Profile;
 
-@Profile("complaint")  
 
 public record ExternalCaseCreateRequest(
         String subject,

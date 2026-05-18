@@ -1,12 +1,13 @@
 package com.cirm.platform.integration.salesforce.client;
 
-import com.cirm.platform.integration.salesforce.dto.CreateCaseSfRequest;
 import com.cirm.platform.integration.salesforce.dto.UpdateCaseSfRequest;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -19,7 +20,7 @@ public class SalesforceClientImpl implements SalesforceClient {
     private String loginUrl;
 
     @Override
-    public String createCase(CreateCaseSfRequest request) {
+    public String createCase(Map<String, Object> payload) {
 
         String accessToken = tokenService.getValidToken();
 
@@ -27,7 +28,7 @@ public class SalesforceClientImpl implements SalesforceClient {
                 .uri(tokenService.getInstanceUrl() + "/services/data/v60.0/sobjects/Case")
                 .header("Authorization", "Bearer " + accessToken)
                 .header("Content-Type", "application/json")
-                .bodyValue(request)
+                .bodyValue(payload)
                 .retrieve()
                 .bodyToMono(CaseResponse.class)
                 .block();
