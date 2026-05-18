@@ -1,4 +1,4 @@
-# CIRM – Standard AI Development Prompt Template
+# CXP – Standard AI Development Prompt Template
 
 Before generating any code:
 

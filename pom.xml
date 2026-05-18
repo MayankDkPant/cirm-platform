@@ -13,11 +13,11 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.cirm</groupId>
+    <groupId>com.cxp</groupId>
     <artifactId>platform</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>cirm-platform</name>
-    <description>CIRM Platform Backend</description>
+    <name>cxp-platform</name>
+    <description>CXP Platform Backend</description>
 
     <properties>
         <java.version>21</java.version>

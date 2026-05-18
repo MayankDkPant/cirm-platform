@@ -108,7 +108,7 @@ JWT keys: RSA keypair in `src/main/resources/keys/`. Salesforce integration uses
 | Property | Default | Notes |
 |---|---|---|
 | `server.port` | 8081 | |
-| `spring.datasource.url` | `jdbc:postgresql://localhost:5432/cirm` | Override via env |
+| `spring.datasource.url` | `jdbc:postgresql://localhost:5432/cxp` | Override via env |
 | `AI_SERVICE_URL` | `http://localhost:8000` | Python sidecar |
 | JWT access token expiry | 30 minutes | |
 | JWT refresh token expiry | 30 days | |

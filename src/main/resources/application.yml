@@ -3,9 +3,9 @@ spring:
     active: admin   # Only governance module enabled for now
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/cirm
-    username: cirm_user
-    password: cirm_pass
+    url: jdbc:postgresql://localhost:5432/cxp
+    username: cxp_user
+    password: cxp_pass
     driver-class-name: org.postgresql.Driver
 
   jpa:

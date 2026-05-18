@@ -1,4 +1,4 @@
-# CIRM – Architecture Manifesto
+# CXP – Architecture Manifesto
 Version: 1.0
 Status: Non-Negotiable
 
@@ -6,7 +6,7 @@ Status: Non-Negotiable
 
 ## 1. System Identity
 
-CIRM (Citizen Relationship Management) is a Civic Intelligence & Engagement Platform.
+CXP (Civic Exchange Platform) is a Civic Intelligence & Engagement Platform.
 
 It is:
 - A System of Engagement
@@ -79,7 +79,7 @@ External system availability must NEVER block complaint intake.
 
 ### 2.4 Eventual Consistency
 
-CIRM operates under eventual consistency with external systems.
+CXP operates under eventual consistency with external systems.
 
 Strong consistency is not required at submission stage.
 
@@ -209,7 +209,7 @@ No architectural shortcuts for speed.
 9. Citizen Identity & Access Management (CIAM)
 9.1 Purpose
 
-CIRM must provide a lightweight, citizen-friendly authentication layer to enable:
+CXP must provide a lightweight, citizen-friendly authentication layer to enable:
 
 Secure access to civic services
 
@@ -219,7 +219,7 @@ Long-lived sessions for mobile users
 
 Future integration with national identity providers
 
-CIRM identity is not a national identity system.
+CXP identity is not a national identity system.
 It is a platform access layer.
 
 External identity providers (Aadhaar, DigiLocker, Google, Apple) may be integrated later.
@@ -268,7 +268,7 @@ Plain OTP values must never be persisted.
 
 9.4 Session Strategy
 
-CIRM uses token-based authentication:
+CXP uses token-based authentication:
 
 Short-lived Access Token (JWT)
 
@@ -306,7 +306,7 @@ Fraud detection
 
 9.6 Identity Ownership
 
-CIRM identity is a platform identifier, not legal identity.
+CXP identity is a platform identifier, not legal identity.
 
 Responsibilities:
 
@@ -316,10 +316,10 @@ Enable personalization and notifications
 
 Enable auditability of civic actions
 
-CIRM identity must remain vendor-neutral.
+CXP identity must remain vendor-neutral.
 
 If Aadhaar integration is added later,
-CIRM user remains the primary platform identity.
+CXP user remains the primary platform identity.
 
 9.7 Security Guarantees
 

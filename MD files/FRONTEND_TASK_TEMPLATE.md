@@ -1,4 +1,4 @@
-# CIRM – Frontend Task Template
+# CXP – Frontend Task Template
 
 ## Feature Name
 [Example: Support deep-link navigation from AIResponseCard]

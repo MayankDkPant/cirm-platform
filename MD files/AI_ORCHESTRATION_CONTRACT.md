@@ -1,4 +1,4 @@
-# CIRM – AI Orchestration Contract
+# CXP – AI Orchestration Contract
 Version: 1.0
 Status: Controlled Evolution Only
 
@@ -6,7 +6,7 @@ Status: Controlled Evolution Only
 
 # 1. AI Role Definition
 
-AI in CIRM is an enrichment layer.
+AI in CXP is an enrichment layer.
 
 AI may:
 - Classify departments
