@@ -1,0 +1,12 @@
+package com.cxp.platform.complaint.domain.enums;
+
+public enum ComplaintEventType {
+    COMPLAINT_CREATED,
+    STATUS_CHANGED,
+    COMPLAINT_MARKED_DUPLICATE,
+    COMPLAINT_REJECTED,
+    COMPLAINT_CLOSED,
+    EXTERNAL_SYNC_REQUESTED,
+    EXTERNAL_SYNC_SUCCESS,
+    EXTERNAL_SYNC_FAILED
+}

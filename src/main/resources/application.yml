@@ -3,9 +3,9 @@ spring:
     active: admin   # Only governance module enabled for now
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/cirm
-    username: cirm_user
-    password: cirm_pass
+    url: jdbc:postgresql://localhost:5432/cxp
+    username: cxp_user
+    password: cxp_pass
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -28,3 +28,9 @@ logging:
   level:
     org.hibernate.SQL: debug
     org.hibernate.type.descriptor.sql: trace
+
+security:
+  jwt:
+    secret: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+    access-token-expiration-minutes: 30
+    refresh-token-expiration-days: 30

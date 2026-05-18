@@ -1,4 +1,4 @@
-# CIRM – Domain Model Guide
+# CXP – Domain Model Guide
 Version: 1.0
 Status: Strict Governance
 

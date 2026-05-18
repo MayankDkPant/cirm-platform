@@ -1,4 +1,4 @@
-# CIRM – Architecture Manifesto
+# CXP – Architecture Manifesto
 Version: 1.0
 Status: Non-Negotiable
 
@@ -6,7 +6,7 @@ Status: Non-Negotiable
 
 ## 1. System Identity
 
-CIRM (Citizen Relationship Management) is a Civic Intelligence & Engagement Platform.
+CXP (Civic Exchange Platform) is a Civic Intelligence & Engagement Platform.
 
 It is:
 - A System of Engagement
@@ -79,7 +79,7 @@ External system availability must NEVER block complaint intake.
 
 ### 2.4 Eventual Consistency
 
-CIRM operates under eventual consistency with external systems.
+CXP operates under eventual consistency with external systems.
 
 Strong consistency is not required at submission stage.
 
@@ -205,6 +205,133 @@ All new features must:
 - Maintain governance alignment
 
 No architectural shortcuts for speed.
+
+9. Citizen Identity & Access Management (CIAM)
+9.1 Purpose
+
+CXP must provide a lightweight, citizen-friendly authentication layer to enable:
+
+Secure access to civic services
+
+Ownership of complaints and interactions
+
+Long-lived sessions for mobile users
+
+Future integration with national identity providers
+
+CXP identity is not a national identity system.
+It is a platform access layer.
+
+External identity providers (Aadhaar, DigiLocker, Google, Apple) may be integrated later.
+
+9.2 Authentication Strategy (Phase 1)
+
+Primary authentication method:
+
+Mobile Number + OTP
+
+Rationale:
+
+Highest adoption in India
+
+Lowest friction for citizens
+
+Suitable for municipal apps
+
+Future pluggable providers:
+
+Aadhaar eKYC
+
+DigiLocker
+
+Social login providers
+
+Authentication must be provider-agnostic.
+
+9.3 Authentication Flow Invariants
+
+OTP lifecycle:
+
+OTP must be generated using cryptographically secure randomness.
+
+OTP must be stored only as a hashed value.
+
+OTP expiry must be short-lived (≤ 2 minutes).
+
+Only one active OTP per mobile number is allowed.
+
+OTP request must enforce resend cooldown.
+
+OTP verification must be attempt-limited.
+
+Plain OTP values must never be persisted.
+
+9.4 Session Strategy
+
+CXP uses token-based authentication:
+
+Short-lived Access Token (JWT)
+
+Long-lived Refresh Token
+
+Device-aware sessions
+
+Design goals:
+
+Citizens rarely re-authenticate
+
+App remains logged in for months
+
+OTP used only for onboarding/recovery
+
+9.5 Device Awareness
+
+Sessions must be associated with a device.
+
+Device metadata includes:
+
+deviceId
+
+deviceName
+
+lastUsedAt
+
+This enables future capabilities:
+
+Device revocation
+
+Session management
+
+Fraud detection
+
+9.6 Identity Ownership
+
+CXP identity is a platform identifier, not legal identity.
+
+Responsibilities:
+
+Link citizens to complaints and conversations
+
+Enable personalization and notifications
+
+Enable auditability of civic actions
+
+CXP identity must remain vendor-neutral.
+
+If Aadhaar integration is added later,
+CXP user remains the primary platform identity.
+
+9.7 Security Guarantees
+
+The platform must ensure:
+
+No password storage
+
+No OTP storage in plaintext
+
+Full audit trail of sessions and tokens
+
+Ability to revoke sessions globally
 
 ---
 

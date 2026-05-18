@@ -3,11 +3,11 @@ services:
 
   postgres:
     image: postgres:15
-    container_name: cirm-postgres
+    container_name: cxp-postgres
     environment:
-      POSTGRES_DB: cirm
-      POSTGRES_USER: cirm_user
-      POSTGRES_PASSWORD: cirm_pass
+      POSTGRES_DB: cxp
+      POSTGRES_USER: cxp_user
+      POSTGRES_PASSWORD: cxp_pass
     ports:
       - "5432:5432"
     volumes:
@@ -16,7 +16,7 @@ services:
 
   ollama:
     image: ollama/ollama
-    container_name: cirm-ollama
+    container_name: cxp-ollama
     ports:
       - "11434:11434"
     volumes:
@@ -27,7 +27,7 @@ services:
     build:
       context: ../ai-service
       dockerfile: Dockerfile
-    container_name: cirm-ai
+    container_name: cxp-ai
     depends_on:
       - ollama
     ports:
@@ -40,16 +40,16 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: cirm-backend
+    container_name: cxp-backend
     depends_on:
       - postgres
       - ai
     ports:
       - "8080:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cirm
-      SPRING_DATASOURCE_USERNAME: cirm_user
-      SPRING_DATASOURCE_PASSWORD: cirm_pass
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cxp
+      SPRING_DATASOURCE_USERNAME: cxp_user
+      SPRING_DATASOURCE_PASSWORD: cxp_pass
       AI_SERVICE_URL: http://ai:8000
       SALESFORCE_CLIENT_ID: 3MVG97L7PWbPq6Uz8ZKeySjFUHPWxO5WeYlllYhVqx5pDRNJjToMAFNuXBlWxQu9.HS9Bf95SmJa8ogP6VB19
       SALESFORCE_USERNAME: mayank@cirmorg.com
