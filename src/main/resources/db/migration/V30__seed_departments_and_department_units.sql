@@ -66,9 +66,9 @@ SELECT
     u.code,
     u.name,
     u.scope,
-    '560c29b8-ff14-4985-af71-fe69768afbf3'::uuid, -- state_id
-    '8adf43d1-2773-4f98-aa24-46d87ceca105'::uuid, -- district_id
-    '58724ce3-e5ff-4ab1-83af-a1a1c96bccac'::uuid, -- governing_body_id
+    (SELECT id FROM state        WHERE "Code__c" = 'UK'),
+    (SELECT id FROM district     WHERE "Code__c" = 'UK-DDN07'),
+    (SELECT id FROM governing_body WHERE "Code__c" = 'UK-DDN07-MC'),
     true,
     false,
     now(),

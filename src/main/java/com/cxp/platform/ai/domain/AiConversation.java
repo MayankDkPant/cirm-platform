@@ -30,7 +30,9 @@ public class AiConversation extends BaseEntity {
     @Column(name = "user_id", nullable = false)
     private UUID userId;
 
-    @Column(name = "governing_body_id", nullable = false)
+    // Null for citizen sessions (no operator tenant context in Supabase JWT).
+    // Populated for operator sessions from TenantContext.
+    @Column(name = "governing_body_id")
     private UUID governingBodyId;
 
     @Enumerated(EnumType.STRING)

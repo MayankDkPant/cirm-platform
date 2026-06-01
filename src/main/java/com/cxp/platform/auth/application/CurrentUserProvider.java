@@ -14,8 +14,21 @@ public interface CurrentUserProvider {
 
     /**
      * Returns the authenticated user identifier.
+     * Throws IllegalStateException for unauthenticated requests.
      */
     UUID getCurrentUserId();
+
+    /**
+     * Returns the authenticated user identifier, or null for unauthenticated/anonymous requests.
+     * Use this for workflows (e.g. citizen request creation) that must work without a JWT.
+     */
+    default UUID getCurrentUserIdOrNull() {
+        try {
+            return getCurrentUserId();
+        } catch (IllegalStateException ignored) {
+            return null;
+        }
+    }
 
     /**
      * Returns the authenticated governing body (tenant) identifier.

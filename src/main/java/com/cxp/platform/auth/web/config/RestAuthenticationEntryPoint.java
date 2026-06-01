@@ -40,7 +40,10 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
     public void commence(HttpServletRequest request,
                          HttpServletResponse response,
                          AuthenticationException authException) throws IOException, ServletException {
-        log.warn("unauthorized_request path={} reason={}", request.getRequestURI(), authException.getMessage());
+        log.warn("UNAUTHORIZED_ACCESS path={} exceptionType={} reason={}",
+                request.getRequestURI(),
+                authException.getClass().getSimpleName(),
+                authException.getMessage());
 
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);

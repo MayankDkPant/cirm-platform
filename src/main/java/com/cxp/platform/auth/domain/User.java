@@ -28,6 +28,7 @@ public class User extends BaseEntity {
     private boolean enabled = true;
 
     public enum Role {
-        CITIZEN
+        CITIZEN,
+        OPERATOR
     }
 }

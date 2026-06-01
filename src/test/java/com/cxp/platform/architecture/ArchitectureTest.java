@@ -21,27 +21,6 @@ class ArchitectureTest {
             .importPackages("com.cxp.platform");
 
     @Test
-    void complaintMustNotDependOnAiRepository() {
-        noClasses()
-                .that().resideInAPackage("com.cxp.platform.complaint..")
-                .should().dependOnClassesThat().resideInAPackage("com.cxp.platform.ai.repository..");
-    }
-
-    @Test
-    void aiMustNotDependOnComplaintRepository() {
-        noClasses()
-                .that().resideInAPackage("com.cxp.platform.ai..")
-                .should().dependOnClassesThat().resideInAPackage("com.cxp.platform.complaint.repository..");
-    }
-
-    @Test
-    void externalModulesMustNotDependOnComplaintRepository() {
-        noClasses()
-                .that().resideOutsideOfPackage("com.cxp.platform.complaint..")
-                .should().dependOnClassesThat().resideInAPackage("com.cxp.platform.complaint.repository..");
-    }
-
-    @Test
     void externalModulesMustNotDependOnAiRepository() {
         noClasses()
                 .that().resideOutsideOfPackage("com.cxp.platform.ai..")

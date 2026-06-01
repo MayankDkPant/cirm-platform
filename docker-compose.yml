@@ -1,4 +1,3 @@
-
 services:
 
   postgres:
@@ -13,6 +12,18 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: cxp-pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@cxp.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
 
   ollama:
     image: ollama/ollama
@@ -36,6 +47,15 @@ services:
       OLLAMA_BASE_URL: http://ollama:11434
     restart: unless-stopped
 
+  ward-locator:
+    build:
+      context: ../ward-locator
+      dockerfile: Dockerfile
+    container_name: cxp-ward-locator
+    ports:
+      - "8081:8080"
+    restart: unless-stopped
+
   app:
     build:
       context: .
@@ -44,13 +64,18 @@ services:
     depends_on:
       - postgres
       - ai
+      - ward-locator
     ports:
-      - "8080:8080"
+      - "8080:8081"
     environment:
+      SPRING_PROFILES_ACTIVE: admin,local
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cxp
       SPRING_DATASOURCE_USERNAME: cxp_user
       SPRING_DATASOURCE_PASSWORD: cxp_pass
+
       AI_SERVICE_URL: http://ai:8000
+      WARD_LOCATOR_BASE_URL: http://ward-locator:8080
+
       SALESFORCE_CLIENT_ID: 3MVG97L7PWbPq6Uz8ZKeySjFUHPWxO5WeYlllYhVqx5pDRNJjToMAFNuXBlWxQu9.HS9Bf95SmJa8ogP6VB19
       SALESFORCE_USERNAME: mayank@cirmorg.com
       SALESFORCE_LOGIN_URL: https://login.salesforce.com

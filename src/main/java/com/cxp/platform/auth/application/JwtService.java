@@ -18,11 +18,14 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Application service responsible for issuing and validating platform JWTs.
+ * Issues and validates platform JWTs (HS256).
  *
- * Centralizes HS256 token signing, signature validation, expiry checks,
- * and claim extraction so authentication behavior remains consistent across
- * all secured APIs.
+ * governing_body_id (tenant) claim policy:
+ *   - Included when the principal has a non-null tenantId (valid UUID string).
+ *   - Omitted entirely when tenantId is null — never written as "UNASSIGNED"
+ *     or any other non-UUID sentinel.
+ * This prevents UUID parse failures in JwtAuthenticationFilter and makes
+ * the absence of a tenant explicit and safely detectable.
  */
 @Service
 @Slf4j
@@ -46,69 +49,59 @@ public class JwtService {
 
     /**
      * Generates a short-lived ACCESS token.
+     * governing_body_id is included only when tenantId is non-null.
      */
     public String generateAccessToken(UserPrincipal principal) {
         Objects.requireNonNull(principal, "principal must not be null");
         Objects.requireNonNull(principal.getUserId(), "principal.userId must not be null");
 
-        String tenantId = principal.getTenantId() == null
-                ? "UNASSIGNED"
-                : principal.getTenantId().toString();
-
-        List<String> roles = principal.getRoles() == null
-                ? List.of()
-                : principal.getRoles();
-
-        Instant now = Instant.now();
+        List<String> roles = principal.getRoles() == null ? List.of() : principal.getRoles();
+        Instant now    = Instant.now();
         Instant expiry = now.plus(accessTokenExpirationMinutes, ChronoUnit.MINUTES);
 
-        JwtClaimsSet claims = JwtClaimsSet.builder()
+        JwtClaimsSet.Builder builder = JwtClaimsSet.builder()
                 .subject(principal.getUserId().toString())
                 .issuedAt(now)
                 .expiresAt(expiry)
                 .claim("phone", principal.getPhone())
                 .claim("roles", roles)
-                .claim("governing_body_id", tenantId)
-                .claim("token_type", "ACCESS")
-                .build();
+                .claim("token_type", "ACCESS");
 
-        return jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
+        if (principal.getTenantId() != null) {
+            builder.claim("governing_body_id", principal.getTenantId().toString());
+        }
+
+        return jwtEncoder.encode(JwtEncoderParameters.from(builder.build())).getTokenValue();
     }
 
     /**
      * Generates a long-lived REFRESH token.
+     * Same governing_body_id omission policy as generateAccessToken.
      */
     public String generateRefreshToken(UserPrincipal principal) {
         Objects.requireNonNull(principal, "principal must not be null");
         Objects.requireNonNull(principal.getUserId(), "principal.userId must not be null");
 
-        String tenantId = principal.getTenantId() == null
-                ? "UNASSIGNED"
-                : principal.getTenantId().toString();
-
-        List<String> roles = principal.getRoles() == null
-                ? List.of()
-                : principal.getRoles();
-
-        Instant now = Instant.now();
+        List<String> roles = principal.getRoles() == null ? List.of() : principal.getRoles();
+        Instant now    = Instant.now();
         Instant expiry = now.plus(refreshTokenExpirationDays, ChronoUnit.DAYS);
 
-        JwtClaimsSet claims = JwtClaimsSet.builder()
+        JwtClaimsSet.Builder builder = JwtClaimsSet.builder()
                 .subject(principal.getUserId().toString())
                 .issuedAt(now)
                 .expiresAt(expiry)
                 .claim("phone", principal.getPhone())
                 .claim("roles", roles)
-                .claim("governing_body_id", tenantId)
-                .claim("token_type", "REFRESH")
-                .build();
+                .claim("token_type", "REFRESH");
 
-        return jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
+        if (principal.getTenantId() != null) {
+            builder.claim("governing_body_id", principal.getTenantId().toString());
+        }
+
+        return jwtEncoder.encode(JwtEncoderParameters.from(builder.build())).getTokenValue();
     }
 
-    /**
-     * Validates token signature and expiration.
-     */
+    /** Validates token signature and expiration. */
     public boolean isTokenValid(String token) {
         if (token == null || token.isBlank()) {
             return false;
@@ -136,21 +129,14 @@ public class JwtService {
 
     public List<String> extractRoles(String token) {
         Object value = parseClaims(token).getClaims().get("roles");
-
-        if (value == null) {
-            return List.of();
-        }
-
+        if (value == null) return List.of();
         if (value instanceof List<?> rawList) {
             List<String> roles = new ArrayList<>(rawList.size());
             for (Object role : rawList) {
-                if (role != null) {
-                    roles.add(role.toString());
-                }
+                if (role != null) roles.add(role.toString());
             }
             return roles;
         }
-
         return List.of(value.toString());
     }
 
@@ -174,7 +160,24 @@ public class JwtService {
         return UUID.fromString(extractUserId(token));
     }
 
+    /**
+     * Extracts the governing_body_id claim as a UUID.
+     *
+     * Returns null when the claim is absent (tenant-less tokens issued for citizen flows)
+     * or when the value is blank. Logs a warning and returns null for values that are
+     * present but not a valid UUID (e.g. legacy tokens containing "UNASSIGNED") so that
+     * old tokens degrade gracefully rather than crashing the filter.
+     */
     public UUID extractTenantIdAsUuid(String token) {
-        return UUID.fromString(extractTenantId(token));
+        String tenantId = extractTenantId(token);
+        if (tenantId == null || tenantId.isBlank()) {
+            return null;
+        }
+        try {
+            return UUID.fromString(tenantId);
+        } catch (IllegalArgumentException ex) {
+            log.warn("jwt_tenant_claim_not_uuid value='{}' — treating as absent", tenantId);
+            return null;
+        }
     }
 }

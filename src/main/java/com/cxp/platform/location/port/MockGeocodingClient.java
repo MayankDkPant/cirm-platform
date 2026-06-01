@@ -1,13 +1,17 @@
 package com.cxp.platform.location.port;
 
-import org.springframework.stereotype.Component;
-
 /**
- * Temporary stub implementation of {@link GeocodingClient} used during development.
- * This component returns deterministic mocked geocoding responses until real geocoding
- * provider integration is implemented.
+ * Stub implementation of {@link GeocodingClient} — NOT registered as a Spring bean.
+ *
+ * Geocoding (address → coordinates, coordinates → address) is not used in the current
+ * architecture. The mobile app sends GPS coordinates directly; the backend passes them
+ * to the ward-locator service without any geocoding step.
+ *
+ * Retained for reference. When a real geocoding provider is integrated:
+ *   - Create a production implementation (e.g. NominatimGeocodingClient @Profile("!local"))
+ *   - Add @Component @Profile("local") here for dev parity
+ *   - Re-inject GeocodingClient into DefaultLocationIntelligenceService
  */
-@Component
 public class MockGeocodingClient implements GeocodingClient {
 
     @Override
@@ -22,12 +26,11 @@ public class MockGeocodingClient implements GeocodingClient {
 
     @Override
     public GeocodingResult reverseGeocode(Double latitude, Double longitude) {
-    return GeocodingResult.builder()
-            .latitude(30.3165)
-            .longitude(78.0322)
-            .formattedAddress("Ballupur Chowk, Dehradun")
-            .confidenceScore(0.9)
-            .build();
+        return GeocodingResult.builder()
+                .latitude(latitude)
+                .longitude(longitude)
+                .formattedAddress(null)
+                .confidenceScore(0.0)
+                .build();
     }
 }
-

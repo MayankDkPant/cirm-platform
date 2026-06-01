@@ -25,7 +25,15 @@ public class SecurityCurrentUserProvider implements CurrentUserProvider {
      */
     @Override
     public UUID getCurrentUserId() {
-        return getRequiredPrincipal().getUserId();
+        UUID userId = getRequiredPrincipal().getUserId();
+        if (userId == null) {
+            // JWT validated externally but no platform user row exists yet.
+            // The caller must invoke POST /api/v1/users/provision before accessing this endpoint.
+            throw new IllegalStateException(
+                    "User is externally authenticated but not yet provisioned on this platform. " +
+                    "Call POST /api/v1/users/provision first.");
+        }
+        return userId;
     }
 
     /**

@@ -1,61 +1,90 @@
 package com.cxp.platform.location.application;
 
-import com.cxp.platform.location.port.GeocodingClient;
-import com.cxp.platform.location.port.GeocodingResult;
+import com.cxp.platform.governance.repository.WardRepository;
 import com.cxp.platform.location.domain.LocationRoutingRequest;
 import com.cxp.platform.location.domain.LocationRoutingResult;
 import com.cxp.platform.location.domain.WardLookupResult;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
+import java.util.UUID;
 
 /**
- * Application service orchestrating use cases for the module.
+ * Resolves ward routing metadata from GPS coordinates supplied by the caller.
  *
- * Temporary orchestration service that combines geocoding and ward lookup
- * to produce routing metadata until full GIS and routing rules are implemented.
- * Ward lookup is optional and may be unavailable for some municipalities
- * during onboarding phases.
+ * Architecture decision: the backend does NOT perform geocoding (address → coordinates).
+ * The mobile app is responsible for supplying GPS coordinates from the device.
+ * If no coordinates are provided, routing is unresolved and an empty result is returned.
+ *
+ * Flow when coordinates present (Case A):
+ *   lat/lon → ward-locator (external HTTP service) → WardLookupResult
+ *            → WardRepository → governingBodyId
+ *            → LocationRoutingResult
+ *
+ * Flow when coordinates absent (Case B):
+ *   Returns empty LocationRoutingResult (all fields null).
+ *   Callers decide how to handle the missing geography
+ *   (e.g. CitizenProvisioningService preserves existing profile geography;
+ *    ServiceRequestService falls back to the user's profile ward).
+ *
+ * governingBodyId is derived from the Ward → GoverningBody FK, making it
+ * authoritative and independent of JWT/session context.
  */
+@Slf4j
 @Service
 public class DefaultLocationIntelligenceService implements LocationIntelligenceService {
 
-    private final GeocodingClient geocodingClient;
     private final Optional<WardLookupService> wardLookupService;
+    private final WardRepository wardRepository;
 
     public DefaultLocationIntelligenceService(
-            GeocodingClient geocodingClient,
-            Optional<WardLookupService> wardLookupService) {
-        this.geocodingClient = geocodingClient;
+            Optional<WardLookupService> wardLookupService,
+            WardRepository wardRepository) {
         this.wardLookupService = wardLookupService;
+        this.wardRepository = wardRepository;
     }
 
-    /**
-     * Orchestrates reverse geocoding and ward lookup to resolve
-     * civic location context from complaint coordinates.
-     */
     @Override
     public LocationRoutingResult resolveRouting(LocationRoutingRequest request) {
-        GeocodingResult geo = geocodingClient.reverseGeocode(
-                request.getLatitude(),
-                request.getLongitude()
-        );
+        Double lat = request.getLatitude();
+        Double lon = request.getLongitude();
+
+        if (!hasCoordinates(lat, lon)) {
+            log.debug("location_no_coords — no GPS coordinates provided; ward lookup skipped");
+            return LocationRoutingResult.builder().build();
+        }
 
         WardLookupResult ward = wardLookupService
-                .map(service ->
-                        service.findWardByCoordinates(
-                                request.getLatitude(),
-                                request.getLongitude()
-                        )
-                )
+                .map(svc -> svc.findWardByCoordinates(lat, lon))
                 .orElse(null);
 
+        UUID governingBodyId = resolveGoverningBodyId(ward);
+
+        log.debug("location_resolved lat={} lon={} wardId={} governingBodyId={}",
+                lat, lon,
+                ward != null ? ward.getWardId() : null,
+                governingBodyId);
+
         return LocationRoutingResult.builder()
+                .governingBodyId(governingBodyId)
                 .municipalityId(ward != null ? ward.getMunicipalityId() : null)
                 .municipalityName(ward != null ? ward.getMunicipalityName() : null)
                 .wardId(ward != null ? ward.getWardId() : null)
                 .wardName(ward != null ? ward.getWardName() : null)
-                .formattedAddress(geo.getFormattedAddress())
+                .resolvedLatitude(lat)
+                .resolvedLongitude(lon)
                 .build();
+    }
+
+    private UUID resolveGoverningBodyId(WardLookupResult ward) {
+        if (ward == null || ward.getWardId() == null) {
+            return null;
+        }
+        return wardRepository.findGoverningBodyIdById(ward.getWardId()).orElse(null);
+    }
+
+    private boolean hasCoordinates(Double lat, Double lon) {
+        return lat != null && lon != null;
     }
 }

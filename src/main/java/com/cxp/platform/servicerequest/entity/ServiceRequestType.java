@@ -1,8 +1,8 @@
 package com.cxp.platform.servicerequest.entity;
 
 public enum ServiceRequestType {
+    INQUIRY,
+    ISSUE,
     COMPLAINT,
-    SERVICE,
-    QUERY,
     EMERGENCY
 }

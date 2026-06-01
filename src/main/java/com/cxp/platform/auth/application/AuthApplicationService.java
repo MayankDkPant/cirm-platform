@@ -4,6 +4,8 @@ import com.cxp.platform.auth.domain.RefreshToken;
 import com.cxp.platform.auth.domain.User;
 import com.cxp.platform.auth.infrastructure.persistence.RefreshTokenRepository;
 import com.cxp.platform.auth.infrastructure.persistence.UserRepository;
+import com.cxp.platform.governance.domain.GoverningBody;
+import com.cxp.platform.governance.repository.GoverningBodyRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -15,18 +17,13 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-/**
- * Application service orchestrating use cases for the module.
- */
 public class AuthApplicationService {
 
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
-
-    private static final UUID DEFAULT_GOVERNING_BODY_ID =
-            UUID.fromString("11111111-1111-1111-1111-111111111111");
+    private final GoverningBodyRepository governingBodyRepository;
 
     public AuthResponse mockLogin(String email) {
 
@@ -50,10 +47,15 @@ public class AuthApplicationService {
     }
 
     private String generateAccessToken(User user) {
+        UUID tenantId = governingBodyRepository.findFirstByIsActiveTrue()
+                .map(GoverningBody::getId)
+                .orElseThrow(() -> new IllegalStateException(
+                        "No active governing_body found. Run Flyway migrations and seed data first."));
+
         UserPrincipal principal = UserPrincipal.builder()
                 .userId(user.getId())
                 .phone(user.getEmail())
-                .tenantId(DEFAULT_GOVERNING_BODY_ID)
+                .tenantId(tenantId)
                 .roles(List.of(user.getRole().name()))
                 .build();
         return jwtService.generateAccessToken(principal);
