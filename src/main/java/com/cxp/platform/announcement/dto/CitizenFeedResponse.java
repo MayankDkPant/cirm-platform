@@ -7,7 +7,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.util.UUID;
 
-@Schema(description = "Citizen-facing announcement shape returned by GET /api/v1/announcements/my-feed. " +
+@Schema(description = "Citizen-facing announcement shape. " +
+                      "Returned by GET /api/v1/announcements/feed (public) and GET /api/v1/announcements/my-feed (authenticated). " +
                       "Internal routing fields (geographic FKs, governingBodyId, status) are intentionally excluded. " +
                       "The targetScope label is retained so the mobile UI can render scope badges (e.g. 'Ward notice').")
 public record CitizenFeedResponse(

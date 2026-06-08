@@ -69,3 +69,7 @@ springdoc:
     operations-sorter: alpha
     tags-sorter: alpha
     display-request-duration: true
+
+management:
+  tracing:
+    enabled: true

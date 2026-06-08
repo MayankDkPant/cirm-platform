@@ -68,18 +68,10 @@ public class SecurityConfig {
                                 "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**"
                         ).permitAll()
 
-                        // Anonymous civic announcement feed.
-                        // Scoped to GET only — POST/PATCH on /api/v1/announcements/** remains
-                        // authenticated (matched by the /api/** rule in section ②).
-                        // "/api/v1/announcements/feed/**" covers future ward/city-scoped feed
-                        // sub-paths so they do not require individual permit entries.
-                        //
-                        // TODO (Wave 0 / PR3): The /feed endpoint currently returns AnnouncementResponse
-                        // which includes internal operator fields (governingBodyId, wardId, zoneId …).
-                        // Replace with CitizenFeedResponse to remove the admin DTO leakage.
-                        .requestMatchers(HttpMethod.GET,
-                                "/api/v1/announcements/feed",
-                                "/api/v1/announcements/feed/**").permitAll()
+                        // Anonymous civic announcement feed — returns CitizenFeedResponse (no internal fields).
+                        // Exact path only. Any sub-path of /feed (e.g. /feed/admin) and all
+                        // POST/PATCH on /api/v1/announcements/** fall through to section ② and require auth.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/announcements/feed").permitAll()
 
                         // ── ② API ROUTES — Bearer JWT required ───────────────────────────────────
                         // Platform JWT (operator, carries tenantId claim) or Supabase JWT (citizen,

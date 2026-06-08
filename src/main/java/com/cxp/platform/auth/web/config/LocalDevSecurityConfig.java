@@ -62,9 +62,7 @@ public class LocalDevSecurityConfig {
                                 "/auth/**", "/api/v1/auth/**", "/actuator/health",
                                 "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**"
                         ).permitAll()
-                        .requestMatchers(HttpMethod.GET,
-                                "/api/v1/announcements/feed",
-                                "/api/v1/announcements/feed/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/announcements/feed").permitAll()
 
                         // Local-dev-only test utilities. @Profile("local") on the controller
                         // guarantees these routes do not exist in production — this matcher is

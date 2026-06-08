@@ -6,6 +6,9 @@ import com.cxp.platform.announcement.domain.AnnouncementStatus;
 import com.cxp.platform.announcement.domain.AnnouncementTargetScope;
 import com.cxp.platform.announcement.dto.AnnouncementCreateRequest;
 import com.cxp.platform.announcement.dto.AnnouncementResponse;
+import com.cxp.platform.announcement.dto.AnnouncementStatusUpdateRequest;
+import com.cxp.platform.announcement.dto.AnnouncementUpdateRequest;
+import com.cxp.platform.announcement.dto.CitizenAnnouncementDetailResponse;
 import com.cxp.platform.announcement.dto.CitizenFeedResponse;
 import com.cxp.platform.announcement.exception.AnnouncementNotFoundException;
 import com.cxp.platform.announcement.repository.AnnouncementRepository;
@@ -143,7 +146,7 @@ public class AnnouncementService {
      * ZONE is excluded pending the AudienceResolverService.
      */
     @Transactional(readOnly = true)
-    public List<AnnouncementResponse> getPublicFeed(UUID wardId) {
+    public List<CitizenFeedResponse> getPublicFeed(UUID wardId) {
         UUID governingBodyId = TenantContext.getOrNull();  // citizen-safe: never throws
         Instant now = Instant.now();
         AnnouncementStatus published = AnnouncementStatus.PUBLISHED;
@@ -170,7 +173,7 @@ public class AnnouncementService {
 
         log.debug("announcement_feed_served gbId={} wardId={} count={}",
                 governingBodyId, wardId, feed.size());
-        return feed.stream().map(mapper::toResponse).toList();
+        return feed.stream().map(mapper::toCitizenResponse).toList();
     }
 
     /**
@@ -213,6 +216,121 @@ public class AnnouncementService {
                 userId, profile.getWardUuid(), feed.size());
 
         return feed.stream().map(mapper::toCitizenResponse).toList();
+    }
+
+    /**
+     * Returns citizen-safe detail for a single PUBLISHED, active, non-expired announcement.
+     *
+     * This method is permit-all — it must NEVER call TenantContext.get().
+     * DRAFT, ARCHIVED, EXPIRED, inactive, and unknown IDs all produce AnnouncementNotFoundException
+     * (404) — the response is identical to prevent status-probing by unauthenticated callers.
+     */
+    @Transactional(readOnly = true)
+    public CitizenAnnouncementDetailResponse getPublicDetail(UUID id) {
+        Announcement announcement = announcementRepository
+                .findPublishedById(id, AnnouncementStatus.PUBLISHED, Instant.now())
+                .orElseThrow(() -> new AnnouncementNotFoundException(id));
+        return mapper.toPublicDetailResponse(announcement);
+    }
+
+    /**
+     * Updates the mutable content fields of a DRAFT announcement.
+     *
+     * Targeting fields (targetScope, wardId, zoneId, cityId, districtId, stateId) are
+     * immutable after creation and are silently ignored by this method — they are not
+     * present on AnnouncementUpdateRequest.
+     *
+     * Null fields in the request preserve the existing value.
+     * Returns HTTP 409 if the announcement is not in DRAFT status.
+     */
+    @Transactional
+    public AnnouncementResponse update(UUID id, AnnouncementUpdateRequest request) {
+        UUID userId = currentUserProvider.getCurrentUserId();
+        Announcement announcement = findTenantScoped(id);
+
+        if (announcement.getStatus() != AnnouncementStatus.DRAFT) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Only DRAFT announcements can be updated. " +
+                    "Current status: " + announcement.getStatus() +
+                    ". Use PATCH /status to transition the lifecycle.");
+        }
+
+        if (request.expiresAt() != null && request.expiresAt().isBefore(Instant.now())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "expires_at must be a future timestamp");
+        }
+
+        if (request.title()    != null) announcement.setTitle(request.title());
+        if (request.content()  != null) announcement.setContent(request.content());
+        if (request.summary()  != null) announcement.setSummary(request.summary());
+        if (request.category() != null) announcement.setCategory(request.category());
+        if (request.priority() != null) announcement.setPriority(request.priority());
+        if (request.expiresAt() != null) announcement.setExpiresAt(request.expiresAt());
+        if (request.pinned()   != null) announcement.setPinned(request.pinned());
+        if (request.tags()     != null) announcement.setTags(request.tags());
+        announcement.setUpdatedByUserId(userId);
+
+        Announcement saved = announcementRepository.save(announcement);
+
+        log.info("announcement_updated id={} gbId={}", saved.getId(), saved.getGoverningBodyId());
+
+        return mapper.toResponse(saved);
+    }
+
+    /**
+     * Transitions an announcement's lifecycle status.
+     *
+     * Valid API-driven transitions:
+     *   DRAFT      → PUBLISHED  sets publishedAt = Instant.now()
+     *   PUBLISHED  → ARCHIVED   retains publishedAt; announcement removed from citizen feeds
+     *
+     * Rejected transitions (HTTP 409):
+     *   PUBLISHED → DRAFT       once published, an announcement cannot revert to draft
+     *   ARCHIVED  → any         archived is a terminal state via the API
+     *   EXPIRED   → any         expired is system-managed; not writable via API
+     *   same → same             no-op transitions are rejected
+     *   DRAFT → ARCHIVED        no direct path; publish first, then archive
+     */
+    @Transactional
+    public AnnouncementResponse updateStatus(UUID id, AnnouncementStatusUpdateRequest request) {
+        UUID userId = currentUserProvider.getCurrentUserId();
+        Announcement announcement = findTenantScoped(id);
+
+        AnnouncementStatus current = announcement.getStatus();
+        AnnouncementStatus target  = request.status();
+
+        if (target == AnnouncementStatus.EXPIRED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "EXPIRED is system-managed and cannot be set via this endpoint");
+        }
+
+        if (current == target) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Announcement is already " + current);
+        }
+
+        boolean valid = (current == AnnouncementStatus.DRAFT     && target == AnnouncementStatus.PUBLISHED)
+                     || (current == AnnouncementStatus.PUBLISHED  && target == AnnouncementStatus.ARCHIVED);
+
+        if (!valid) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Invalid status transition: " + current + " → " + target +
+                    ". Allowed: DRAFT → PUBLISHED, PUBLISHED → ARCHIVED");
+        }
+
+        if (target == AnnouncementStatus.PUBLISHED) {
+            announcement.setPublishedAt(Instant.now());
+        }
+
+        announcement.setStatus(target);
+        announcement.setUpdatedByUserId(userId);
+
+        Announcement saved = announcementRepository.save(announcement);
+
+        log.info("announcement_status_updated id={} {} → {} gbId={}",
+                saved.getId(), current, target, saved.getGoverningBodyId());
+
+        return mapper.toResponse(saved);
     }
 
     private Announcement findTenantScoped(UUID id) {

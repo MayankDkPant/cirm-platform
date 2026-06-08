@@ -80,45 +80,6 @@ public interface AnnouncementRepository extends JpaRepository<Announcement, UUID
             @Param("now")         Instant now);
 
     /**
-     * Authenticated citizen feed: returns all published, active, non-expired announcements
-     * that match any geography dimension carried in the citizen's user profile.
-     *
-     * Each targetScope arm is matched against the corresponding profile FK:
-     *   WARD     → wardId     must equal the citizen's ward
-     *   CITY     → cityId     must equal the citizen's city
-     *   DISTRICT → districtId must equal the citizen's district
-     *   STATE    → stateId    must equal the citizen's state
-     *
-     * Null profile FKs match nothing safely — a citizen whose profile lacks a
-     * districtUuid will simply receive no DISTRICT announcements.
-     *
-     * ZONE is excluded here; zone resolution (which zone a ward belongs to) is
-     * deferred to the future AudienceResolverService.
-     */
-    @Query("""
-            SELECT a FROM Announcement a
-            WHERE a.governingBodyId = :gbId
-              AND a.status          = :status
-              AND a.isActive        = true
-              AND (
-                  (a.targetScope = 'WARD'     AND a.wardId     = :wardId)
-               OR (a.targetScope = 'CITY'     AND a.cityId     = :cityId)
-               OR (a.targetScope = 'DISTRICT' AND a.districtId = :districtId)
-               OR (a.targetScope = 'STATE'    AND a.stateId    = :stateId)
-              )
-              AND (a.expiresAt IS NULL OR a.expiresAt > :now)
-            ORDER BY a.pinned DESC, a.publishedAt DESC
-            """)
-    List<Announcement> findFeedForCitizen(
-            @Param("gbId")        UUID governingBodyId,
-            @Param("wardId")      UUID wardId,
-            @Param("cityId")      UUID cityId,
-            @Param("districtId")  UUID districtId,
-            @Param("stateId")     UUID stateId,
-            @Param("status")      AnnouncementStatus status,
-            @Param("now")         Instant now);
-
-    /**
      * Geography-primary citizen feed — no governing body filter.
      *
      * Used by authenticated citizen endpoints where the JWT may carry no governing_body_id
@@ -148,6 +109,48 @@ public interface AnnouncementRepository extends JpaRepository<Announcement, UUID
             @Param("stateId")     UUID stateId,
             @Param("status")      AnnouncementStatus status,
             @Param("now")         Instant now);
+
+    // ── Expiry sweep ─────────────────────────────────────────────────────────
+
+    /**
+     * Returns all PUBLISHED, active announcements whose expiry timestamp has passed.
+     * Used exclusively by AnnouncementExpiryWorker — never call this from a request path.
+     *
+     * Ordered by expiresAt ASC so the oldest expirations are processed first.
+     */
+    @Query("""
+            SELECT a FROM Announcement a
+            WHERE a.status   = :status
+              AND a.isActive = true
+              AND a.expiresAt IS NOT NULL
+              AND a.expiresAt < :now
+            ORDER BY a.expiresAt ASC
+            """)
+    List<Announcement> findPublishedAndExpired(
+            @Param("status") AnnouncementStatus status,
+            @Param("now")    Instant now);
+
+    // ── Public civic detail ───────────────────────────────────────────────────
+
+    /**
+     * Public lookup by ID — no tenant context required.
+     *
+     * Returns the announcement only when it is PUBLISHED, active, and not expired.
+     * DRAFT, ARCHIVED, EXPIRED, and inactive records all produce an empty Optional,
+     * which the caller maps to 404 — citizens cannot distinguish a non-existent ID
+     * from one that exists in a non-public state.
+     */
+    @Query("""
+            SELECT a FROM Announcement a
+            WHERE a.id       = :id
+              AND a.status   = :status
+              AND a.isActive = true
+              AND (a.expiresAt IS NULL OR a.expiresAt > :now)
+            """)
+    Optional<Announcement> findPublishedById(
+            @Param("id")     UUID id,
+            @Param("status") AnnouncementStatus status,
+            @Param("now")    Instant now);
 
     // ── Future queries (hooks for upcoming features) ──────────────────────────
     // findByGoverningBodyIdAndStatus         — scheduled expiry sweep
