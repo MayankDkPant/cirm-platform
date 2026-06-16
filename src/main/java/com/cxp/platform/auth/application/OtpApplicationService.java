@@ -4,6 +4,7 @@ import com.cxp.platform.auth.domain.otp.Otp;
 import com.cxp.platform.auth.domain.otp.OtpRepository;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
@@ -44,10 +45,17 @@ public class OtpApplicationService {
     /**
      * Main use-case: Request OTP for a mobile number.
      *
+     * @Transactional: invalidateActiveOtps + save(newOtp) must be atomic.
+     * Without it, a failure between the two leaves the user with no valid OTP
+     * because the previous OTP was already invalidated. The transaction ensures
+     * either both writes commit or neither does — the user retains their existing
+     * OTP if the new one cannot be persisted.
+     *
      * Returns:
      *  - OTP reference (public id)
      *  - Generated OTP (temporarily returned for SMS integration later)
      */
+    @Transactional
     public OtpResponse requestOtp(String mobileNumber) {
 
         LocalDateTime now = LocalDateTime.now();

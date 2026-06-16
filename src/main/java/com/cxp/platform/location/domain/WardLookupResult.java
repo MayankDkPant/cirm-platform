@@ -9,8 +9,15 @@ import lombok.Setter;
 import java.util.UUID;
 
 /**
- * Represents the result of GIS-based ward lookup performed using coordinates.
- * Includes resolved municipality and ward identifiers with display names.
+ * Raw result of a GIS ward lookup from coordinates.
+ *
+ * municipalityId / municipalityName are legacy field names for the governing body —
+ * they were introduced before the internal terminology converged on "governing body."
+ * These values are populated by HttpWardLookupService but are NOT read by any downstream
+ * service (DefaultLocationIntelligenceService derives governingBodyId independently from
+ * the local WardRepository to ensure DB-level authority). Retained for backward compatibility.
+ *
+ * wardId / wardName are the authoritative output of this result.
  */
 @Getter
 @Setter
@@ -19,8 +26,14 @@ import java.util.UUID;
 @Builder
 public class WardLookupResult {
 
+    /** @deprecated Legacy name for governing body ID. Not read downstream — use wardId and let callers derive governingBodyId from the local DB. */
+    @Deprecated
     private UUID municipalityId;
+
+    /** @deprecated Never populated in the HTTP path (WardLocatorResponse has no municipality name). */
+    @Deprecated
     private String municipalityName;
+
     private UUID wardId;
     private String wardName;
 }

@@ -4,6 +4,8 @@ import com.cxp.platform.servicerequest.dto.ServiceRequestResponse;
 import com.cxp.platform.servicerequest.entity.ServiceRequest;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 @Component
 class ServiceRequestMapper {
 
@@ -22,7 +24,18 @@ class ServiceRequestMapper {
                 request.getDepartmentId(),
                 request.getWardId(),
                 request.getWardName(),
-                request.getCreatedAt()
+                request.getAiConfidence(),
+                request.isPublic(),
+                request.getVisibilityScope(),
+                request.getExternalSyncStatus(),
+                request.getCreatedAt(),
+                // contract fields
+                null,                       // referenceNumber — assigned by Salesforce sync
+                null,                       // department — deferred; see ServiceRequestResponse Javadoc
+                0,                          // mediaCount — upload not yet implemented
+                request.getUpdatedAt(),
+                request.getResolvedAt(),
+                List.of()                   // media — MUST be [] not null
         );
     }
 }

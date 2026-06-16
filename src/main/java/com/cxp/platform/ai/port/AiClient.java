@@ -27,12 +27,12 @@ public class AiClient {
         this.restTemplate = new RestTemplate();
     }
 
-    public AiClassificationResponse classify(String complaintText) {
+    public AiClassificationResponse classify(String requestText) {
 
         String url = "http://host.docker.internal:8000/classify";
 
         Map<String, String> requestBody = Map.of(
-                "text", complaintText
+                "text", requestText
         );
 
         try {
@@ -48,7 +48,7 @@ public class AiClient {
         } catch (Exception e) {
             // AI fallback response when service is unavailable
             AiClassificationResponse fallback = new AiClassificationResponse();
-            fallback.setType("COMPLAINT");
+            fallback.setType("GENERAL");
             fallback.setCategory("OTHER");
             fallback.setPriority("MEDIUM");
             fallback.setConfidence(0.5);

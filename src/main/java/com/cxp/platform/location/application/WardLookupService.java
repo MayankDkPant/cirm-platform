@@ -3,10 +3,14 @@ package com.cxp.platform.location.application;
 import com.cxp.platform.location.domain.WardLookupResult;
 
 /**
- * Application service orchestrating use cases for the module.
+ * Resolves ward jurisdiction from GPS coordinates using internally stored GIS boundary data.
  *
- * Resolves municipality and ward information from coordinates using
- * internally stored GIS boundary data.
+ * Terminology note: "municipality" in this interface and its implementations is legacy naming
+ * for "governing body" — the platform canonical term introduced after the location module was
+ * originally written. Internal field names (municipalityId, municipalityName) in WardLookupResult
+ * and LocationRoutingResult are deprecated internal aliases; they are not exposed in the HTTP API.
+ * The authoritative governing body identifier is always derived from the local DB (GoverningBody FK),
+ * never from the external ward-locator service.
  */
 public interface WardLookupService {
 

@@ -1,0 +1,2613 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "CXP Platform API",
+    "description": "Civic Exchange Platform — citizen service-request intake, AI enrichment, governance discovery, and announcement feed. Authenticated endpoints require a Bearer JWT (Platform HS256 for operators, Supabase ES256 for citizens). Public endpoints are explicitly marked.\n\n## Compatibility & Deprecation Policy\n\nThe platform maintains backward-compatible aliases for one release cycle while clients migrate to canonical field names. All deprecated fields and endpoints are marked with a strikethrough in Swagger UI and carry `deprecated: true` in the generated OpenAPI schema — SDK generators will surface these as deprecated in generated client code.\n\n**Active transitional aliases (marked deprecated in schema):**\n- `ServiceRequestEvent.oldValue` → migrate to `oldStatus`\n- `ServiceRequestEvent.newValue` → migrate to `newStatus`\n- `ServiceRequestEvent.changedByRole` → migrate to `actorType`\n- `CitizenProfile.appUserId` → migrate to `id`\n- `CitizenProfile.postalCode` → migrate to `pinCode`\n- `UserProvision.appUserId` → migrate to `id`\n- `ServiceRequestCreate.aiConversationId` → not replaced; field is legacy from a discontinued conversational flow\n- Pagination `number` field → migrate to `page`\n\n**Deprecated endpoints:**\n- `POST /api/v1/ai/service-requests/analyze` → migrate to `POST /api/v1/service-requests/analyze` (identical contract)",
+    "version": "v1"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8081",
+      "description": "Generated server url"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Users",
+      "description": "Citizen profile lifecycle — provision and retrieve the civic identity tied to a Supabase JWT. All operations require an authenticated citizen session. Profile data drives geography targeting, service-request routing, and personalised announcement feeds."
+    },
+    {
+      "name": "Service Requests",
+      "description": "Civic complaint intake and lifecycle management. Citizens submit, list, and view their own requests. Operators manage status transitions (requires OPERATOR role). AI enrichment preview (/analyze) is available pre-submit and does not persist any data."
+    },
+    {
+      "name": "Announcements",
+      "description": "Civic announcement publication and consumption. The anonymous public feed (/feed) requires no authentication. The personalised citizen feed (/my-feed) resolves geography from the authenticated citizen profile. Operator authoring (create, list) requires the OPERATOR role."
+    },
+    {
+      "name": "Governance Discovery",
+      "description": "Read-only hierarchy traversal for onboarding and reference lookups: states → districts → cities → governing bodies → wards / departments. All responses return only {id, name} — no audit metadata. Intended consumers: onboarding flow, dropdown population, service-request submission, and external SDK integrations."
+    },
+    {
+      "name": "AI",
+      "description": "Civic AI capabilities. Currently: conversational AI chat (/ai/chat) scoped to the authenticated citizen or operator session. AI output is enrichment-only — it cannot change lifecycle state or trigger escalations. All AI responses include a confidence signal."
+    }
+  ],
+  "paths": {
+    "/api/v1/users/provision": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Provision a citizen profile",
+        "description": "Creates or updates the civic profile linked to the authenticated Supabase JWT. Identity (email) is extracted from the verified JWT claim — client-supplied identity fields are ignored. Safe to call on every app launch (upsert semantics). Requires: authenticated citizen session.",
+        "operationId": "provision",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserProvisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Validation failure or unresolvable wardId supplied in the request body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected platform error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — Bearer JWT is missing, expired, or invalid. Response body: {\"error\":\"Unauthorized\",\"message\":\"Invalid or missing token\"}"
+          },
+          "200": {
+            "description": "Profile provisioned or updated",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProvisionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/service-requests": {
+      "get": {
+        "tags": [
+          "Service Requests"
+        ],
+        "summary": "List the authenticated citizen's service requests",
+        "description": "Returns a paginated list of service requests submitted by the caller. Citizens see only their own requests. Default page size is 20; use ?page and ?size to paginate. Pagination envelope: 'page' is the canonical 0-based page index. 'number' is a deprecated backward-compatibility alias for 'page' — SDK consumers must migrate to 'page'; 'number' will be removed in a future release.",
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected platform error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Paginated list of service requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedServiceRequestResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — Bearer JWT is missing, expired, or invalid. Response body: {\"error\":\"Unauthorized\",\"message\":\"Invalid or missing token\"}"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Service Requests"
+        ],
+        "summary": "Submit a civic service request",
+        "description": "Creates a new service request scoped to the authenticated citizen. Ward routing is derived server-side from the supplied GPS coordinates — no ward selection is required from the client. Supply an Idempotency-Key header to prevent duplicate submissions on retry.",
+        "operationId": "create",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceRequestCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Validation failure — required fields missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected platform error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Cannot assign ward jurisdiction — no GPS coordinates supplied and no ward in the citizen's profile. Complete onboarding (POST /api/v1/users/provision) or supply latitude/longitude in the request body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — Bearer JWT is missing, expired, or invalid. Response body: {\"error\":\"Unauthorized\",\"message\":\"Invalid or missing token\"}"
+          },
+          "200": {
+            "description": "Service request created, or cached response returned for a duplicate Idempotency-Key.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceRequestResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/service-requests/analyze": {
+      "post": {
+        "tags": [
+          "Service Requests"
+        ],
+        "summary": "Preview AI enrichment for a service request",
+        "description": "Runs AI classification on the supplied title, description, and GPS coordinates. Returns a suggested category, priority, and routing hint — no data is persisted. Intended for pre-submit UX enrichment; the result is advisory, not authoritative.",
+        "operationId": "analyze",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiServiceRequestAnalyzeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Validation failure — required fields missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected platform error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — Bearer JWT is missing, expired, or invalid. Response body: {\"error\":\"Unauthorized\",\"message\":\"Invalid or missing token\"}"
+          },
+          "200": {
+            "description": "AI enrichment preview returned",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiServiceRequestAnalyzeResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/announcements": {
+      "get": {
+        "tags": [
+          "Announcements"
+        ],
+        "summary": "List all announcements",
+        "description": "Returns all announcements for the operator's tenant, including drafts and expired entries. Operator-only — citizens use /feed or /my-feed instead.",
+        "operationId": "list_1",
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected platform error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — Bearer JWT is missing, expired, or invalid. Response body: {\"error\":\"Unauthorized\",\"message\":\"Invalid or missing token\"}"
+          },
+          "403": {
+            "description": "Forbidden — the caller does not have the OPERATOR role."
+          },
+          "200": {
+            "description": "All announcements for the operator's tenant",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnnouncementResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Announcements"
+        ],
+        "summary": "Create an announcement",
+        "description": "Publishes a civic announcement scoped to the operator's tenant. Targeting (ward, city, district, or state) is set in the request body. Operator-only — requires the OPERATOR role on the platform JWT.",
+        "operationId": "create_1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnouncementCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Validation failure — required fields missing, invalid targeting, or targeting conflicts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected platform error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Announcement created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnouncementResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — Bearer JWT is missing, expired, or invalid. Response body: {\"error\":\"Unauthorized\",\"message\":\"Invalid or missing token\"}"
+          },
+          "403": {
+            "description": "Forbidden — the caller does not have the OPERATOR role."
+          }
+        }
+      }
+    },
+    "/api/v1/ai/service-requests/analyze": {
+      "post": {
+        "tags": [
+          "AI"
+        ],
+        "summary": "AI service-request enrichment preview (deprecated — use /service-requests/analyze)",
+        "description": "DEPRECATED. Canonical replacement: POST /api/v1/service-requests/analyze — identical request/response contract, stable path. This endpoint is a legacy alias retained for one release cycle during client migration. It will be removed in Wave 7. SDK consumers must migrate to the canonical path before that release.",
+        "operationId": "analyze_1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiServiceRequestAnalyzeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Validation failure — required fields missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected platform error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "AI enrichment preview returned — same shape as /service-requests/analyze",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiServiceRequestAnalyzeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — Bearer JWT is missing, expired, or invalid. Response body: {\"error\":\"Unauthorized\",\"message\":\"Invalid or missing token\"}"
+          }
+        },
+        "deprecated": true
+      }
+    },
+    "/api/v1/ai/chat": {
+      "post": {
+        "tags": [
+          "AI"
+        ],
+        "summary": "Start an AI chat session",
+        "description": "Sends a message to the civic AI assistant and returns a reply. The caller's identity (userId, tenantId) is always derived server-side from the JWT — never supplied by the client. AI responses are advisory enrichment only: the AI cannot alter lifecycle state or trigger escalations. Note: each call currently creates a new conversation — session continuity via a client-supplied conversationId is planned for a future release.",
+        "operationId": "chat",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Malformed request body or invalid conversationType.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected platform error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — Bearer JWT is missing, expired, or invalid. Response body: {\"error\":\"Unauthorized\",\"message\":\"Invalid or missing token\"}"
+          },
+          "200": {
+            "description": "AI reply returned",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiChatResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/service-requests/{id}/status": {
+      "patch": {
+        "tags": [
+          "Service Requests"
+        ],
+        "summary": "Update service request status",
+        "description": "Advances the lifecycle state of a service request. Operator-only — requires the OPERATOR role on the platform JWT. Each transition is recorded as an immutable event in the request's event log.",
+        "operationId": "updateStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceRequestStatusUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Validation failure or invalid status transition.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected platform error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — Bearer JWT is missing, expired, or invalid. Response body: {\"error\":\"Unauthorized\",\"message\":\"Invalid or missing token\"}"
+          },
+          "200": {
+            "description": "Service request status updated",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceRequestResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — the caller does not have the OPERATOR role."
+          },
+          "404": {
+            "description": "Service request not found for the given ID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Retrieve the authenticated citizen's profile",
+        "description": "Returns the civic profile for the caller's Supabase identity, including stored geography (ward, city, governing body) and display name. Requires: authenticated citizen session.",
+        "operationId": "me",
+        "responses": {
+          "400": {
+            "description": "Profile has not been provisioned yet. Call POST /api/v1/users/provision first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected platform error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — Bearer JWT is missing, expired, or invalid. Response body: {\"error\":\"Unauthorized\",\"message\":\"Invalid or missing token\"}"
+          },
+          "200": {
+            "description": "Citizen profile returned",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitizenProfileResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/states": {
+      "get": {
+        "tags": [
+          "Governance Discovery"
+        ],
+        "summary": "List all states",
+        "description": "Root of the governance hierarchy. Returns all seeded states alphabetically. Start here when traversing the hierarchy for onboarding or dropdown population.",
+        "operationId": "listStates",
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected platform error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — Bearer JWT is missing, expired, or invalid. Response body: {\"error\":\"Unauthorized\",\"message\":\"Invalid or missing token\"}"
+          },
+          "200": {
+            "description": "All states returned; empty list if none are seeded",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StateResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/states/{stateId}/districts": {
+      "get": {
+        "tags": [
+          "Governance Discovery"
+        ],
+        "summary": "List districts within a state",
+        "description": "Returns districts under the given state, alphabetically. 404 if the stateId is unknown; 200 + [] if the state has no districts. Next step in hierarchy: GET /districts/{districtId}/cities.",
+        "operationId": "listDistricts",
+        "parameters": [
+          {
+            "name": "stateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected platform error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — Bearer JWT is missing, expired, or invalid. Response body: {\"error\":\"Unauthorized\",\"message\":\"Invalid or missing token\"}"
+          },
+          "404": {
+            "description": "stateId not found"
+          },
+          "200": {
+            "description": "Districts returned; empty list if the state has no seeded districts",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DistrictResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/service-requests/{id}": {
+      "get": {
+        "tags": [
+          "Service Requests"
+        ],
+        "summary": "Retrieve a service request",
+        "description": "Returns a single service request by ID. Citizens can retrieve only their own requests. Operators with a valid platform JWT can retrieve any request within their tenant.",
+        "operationId": "get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected platform error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Service request returned",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceRequestResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — Bearer JWT is missing, expired, or invalid. Response body: {\"error\":\"Unauthorized\",\"message\":\"Invalid or missing token\"}"
+          },
+          "404": {
+            "description": "Service request not found for the given ID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/service-requests/{id}/events": {
+      "get": {
+        "tags": [
+          "Service Requests"
+        ],
+        "summary": "List the event history of a service request",
+        "description": "Returns the immutable ordered event log for the given service request — status transitions, AI classifications, and external sync events. Events are append-only and never modified after creation.",
+        "operationId": "getEvents",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected platform error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Ordered event log returned",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceRequestEventsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — Bearer JWT is missing, expired, or invalid. Response body: {\"error\":\"Unauthorized\",\"message\":\"Invalid or missing token\"}"
+          },
+          "404": {
+            "description": "Service request not found for the given ID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/governing-bodies/{governingBodyId}/wards": {
+      "get": {
+        "tags": [
+          "Governance Discovery"
+        ],
+        "summary": "List wards within a governing body",
+        "description": "Returns all wards for the given governing body, alphabetically. Wards are the atomic civic unit — the wardId stored in the citizen profile drives announcement targeting and service-request routing. 404 if governingBodyId is unknown; 200 + [] if no wards are seeded.",
+        "operationId": "listWards",
+        "parameters": [
+          {
+            "name": "governingBodyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected platform error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — Bearer JWT is missing, expired, or invalid. Response body: {\"error\":\"Unauthorized\",\"message\":\"Invalid or missing token\"}"
+          },
+          "404": {
+            "description": "governingBodyId not found"
+          },
+          "200": {
+            "description": "Wards returned; empty list if the governing body has no seeded wards",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WardResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/governing-bodies/{governingBodyId}/departments": {
+      "get": {
+        "tags": [
+          "Governance Discovery"
+        ],
+        "summary": "List departments within a governing body",
+        "description": "Returns active, non-deleted departments for the given governing body, alphabetically. Department codes (e.g. WTR, SWM) are governing-body-scoped — the same code can exist under multiple governing bodies and must never be resolved globally. Use the returned departmentId when submitting a service request. 404 if governingBodyId is unknown; 200 + [] if no active departments exist.",
+        "operationId": "listDepartments",
+        "parameters": [
+          {
+            "name": "governingBodyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected platform error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Active departments returned; empty list if none are active",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DepartmentResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — Bearer JWT is missing, expired, or invalid. Response body: {\"error\":\"Unauthorized\",\"message\":\"Invalid or missing token\"}"
+          },
+          "404": {
+            "description": "governingBodyId not found"
+          }
+        }
+      }
+    },
+    "/api/v1/districts/{districtId}/cities": {
+      "get": {
+        "tags": [
+          "Governance Discovery"
+        ],
+        "summary": "List cities within a district",
+        "description": "Returns active cities under the given district, alphabetically. Inactive cities are excluded server-side. 404 if districtId is unknown; 200 + [] if no active cities exist. Next step in hierarchy: GET /cities/{cityId}/governing-bodies.",
+        "operationId": "listCities",
+        "parameters": [
+          {
+            "name": "districtId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected platform error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Active cities returned; empty list if none are active",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CityResponse"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "districtId not found"
+          },
+          "401": {
+            "description": "Authentication required — Bearer JWT is missing, expired, or invalid. Response body: {\"error\":\"Unauthorized\",\"message\":\"Invalid or missing token\"}"
+          }
+        }
+      }
+    },
+    "/api/v1/cities/{cityId}/governing-bodies": {
+      "get": {
+        "tags": [
+          "Governance Discovery"
+        ],
+        "summary": "List governing bodies within a city",
+        "description": "Returns active civic authorities (Municipal Corporations, Nagar Panchayats, etc.) for the given city, alphabetically. The governingBodyId selected here is the tenant anchor for all subsequent ward and department lookups. 404 if cityId is unknown; 200 + [] if no active governing bodies exist.",
+        "operationId": "listGoverningBodies",
+        "parameters": [
+          {
+            "name": "cityId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected platform error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — Bearer JWT is missing, expired, or invalid. Response body: {\"error\":\"Unauthorized\",\"message\":\"Invalid or missing token\"}"
+          },
+          "404": {
+            "description": "cityId not found"
+          },
+          "200": {
+            "description": "Active governing bodies returned; empty list if none are active",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GoverningBodyResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/announcements/{id}": {
+      "get": {
+        "tags": [
+          "Announcements"
+        ],
+        "summary": "Retrieve an announcement",
+        "operationId": "get_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected platform error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Announcement not found for the given ID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Announcement returned",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnouncementResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — Bearer JWT is missing, expired, or invalid. Response body: {\"error\":\"Unauthorized\",\"message\":\"Invalid or missing token\"}"
+          }
+        }
+      }
+    },
+    "/api/v1/announcements/my-feed": {
+      "get": {
+        "tags": [
+          "Announcements"
+        ],
+        "summary": "Retrieve the personalised citizen announcement feed",
+        "description": "Returns published, active, non-expired announcements relevant to the authenticated citizen. Geography (ward, city, district, state) is resolved from the caller's stored profile — no geography parameters are accepted. Requires: authenticated citizen session.",
+        "operationId": "myFeed",
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected platform error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required — Bearer JWT is missing, expired, or invalid. Response body: {\"error\":\"Unauthorized\",\"message\":\"Invalid or missing token\"}"
+          },
+          "200": {
+            "description": "Personalised announcement feed",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CitizenFeedResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/announcements/feed": {
+      "get": {
+        "tags": [
+          "Announcements"
+        ],
+        "summary": "Browse the public announcement feed",
+        "description": "Returns published, active, non-expired announcements. No authentication required. Optionally filter by wardId to narrow to a specific ward's feed. Authenticated citizens with a stored profile should use /my-feed for personalised results.",
+        "operationId": "feed",
+        "parameters": [
+          {
+            "name": "wardId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Public announcement feed",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnnouncementResponse"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ApiError": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "description": "UTC timestamp of the error",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "integer",
+            "description": "HTTP status code",
+            "format": "int32",
+            "example": 400
+          },
+          "error": {
+            "type": "string",
+            "description": "Machine-readable error code, e.g. VALIDATION_FAILED, NOT_FOUND, BAD_REQUEST",
+            "example": "VALIDATION_FAILED"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable error message"
+          },
+          "path": {
+            "type": "string",
+            "description": "Request path that produced the error",
+            "example": "/api/v1/service-requests"
+          },
+          "fields": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "description": "Field-level validation errors; present only on VALIDATION_FAILED responses",
+              "nullable": true
+            },
+            "description": "Field-level validation errors; present only on VALIDATION_FAILED responses",
+            "nullable": true
+          }
+        },
+        "description": "Standard platform error response. The 'fields' map is present only on VALIDATION_FAILED (400) responses — it maps each failing field name to its constraint message. All other error types omit 'fields'."
+      },
+      "UserProvisionRequest": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "description": "Citizen's full legal name.",
+            "nullable": true
+          },
+          "mobileNumber": {
+            "type": "string",
+            "description": "Citizen's mobile number used for OTP authentication.",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "description": "Free-text address line for the citizen's registered location.",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "number",
+            "description": "GPS latitude for Path A ward resolution (highest-fidelity path). When provided alongside longitude, the backend resolves the ward automatically. Takes precedence over an explicit wardId.",
+            "format": "double",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "description": "GPS longitude for Path A ward resolution. Same semantics as latitude.",
+            "format": "double",
+            "nullable": true
+          },
+          "pinCode": {
+            "type": "string",
+            "description": "Postal / PIN code (Indian convention). Also accepted as 'postalCode' for backward compatibility.",
+            "nullable": true
+          },
+          "wardId": {
+            "type": "string",
+            "description": "Explicit ward identifier for Path B resolution — used when GPS is unavailable or the citizen manually corrects their ward via the governance discovery hierarchy. Must be a UUID from GET /governing-bodies/{id}/wards. Ignored when GPS coordinates are present and resolve successfully.",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "description": "Citizen civic profile provisioning request for POST /api/v1/users/provision. Email is excluded — it is extracted from the validated JWT claims, making spoofed body values impossible. Ward resolution uses GPS coordinates (Path A, preferred) or an explicit wardId (Path B)."
+      },
+      "UserProvisionResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Canonical platform user identity (User.id). Stable across all profile updates. Persist this as the durable citizen identifier.",
+            "format": "uuid"
+          },
+          "wardId": {
+            "type": "string",
+            "description": "Canonical ward identifier resolved for this citizen. Authoritative reference into GET /governing-bodies/{id}/wards.",
+            "nullable": true
+          },
+          "wardName": {
+            "type": "string",
+            "description": "Denormalized ward display label. Use for display only; wardId is the authoritative reference.",
+            "nullable": true
+          },
+          "zoneId": {
+            "type": "string",
+            "description": "Zone identifier within the ward hierarchy. Null when zone resolution is not configured.",
+            "nullable": true
+          },
+          "governingBodyId": {
+            "type": "string",
+            "description": "Canonical governing authority identifier for this citizen's ward.",
+            "nullable": true
+          },
+          "cityId": {
+            "type": "string",
+            "description": "Canonical city identifier resolved via the governance hierarchy.",
+            "nullable": true
+          },
+          "city": {
+            "type": "string",
+            "description": "Denormalized city display label. Use for display only.",
+            "nullable": true
+          },
+          "districtId": {
+            "type": "string",
+            "description": "Canonical district identifier resolved via the governance hierarchy.",
+            "nullable": true
+          },
+          "district": {
+            "type": "string",
+            "description": "Denormalized district display label. Use for display only.",
+            "nullable": true
+          },
+          "stateId": {
+            "type": "string",
+            "description": "Canonical state identifier resolved via the governance hierarchy.",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "description": "Denormalized state display label. Use for display only.",
+            "nullable": true
+          },
+          "onboardingComplete": {
+            "type": "boolean",
+            "description": "True when the citizen has completed the onboarding flow (ward resolved)."
+          },
+          "appUserId": {
+            "type": "string",
+            "description": "DEPRECATED — use id. Backward-compatibility alias retained for one release cycle. Will be removed in a future release.",
+            "format": "uuid",
+            "deprecated": true
+          }
+        },
+        "description": "Response from POST /api/v1/users/provision. Returned on both first-run provisioning and subsequent profile updates. The deprecated appUserId alias is emitted alongside id for backward compatibility."
+      },
+      "ServiceRequestCreateRequest": {
+        "required": [
+          "description",
+          "title"
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Service request classification. Optional — defaults to COMPLAINT when absent. Citizens submitting via the mobile app do not select a type explicitly.",
+            "nullable": true,
+            "enum": [
+              "INQUIRY",
+              "ISSUE",
+              "COMPLAINT",
+              "EMERGENCY"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "description": "Short human-readable title of the service request."
+          },
+          "description": {
+            "type": "string",
+            "description": "Full description of the issue reported by the citizen."
+          },
+          "category": {
+            "type": "string",
+            "description": "Issue category. Optional — defaults to OTHER when absent or when AI classification is inconclusive.",
+            "nullable": true,
+            "enum": [
+              "WASTE_MANAGEMENT",
+              "ROAD_DAMAGE",
+              "WATER_SUPPLY",
+              "STREETLIGHT",
+              "SEWERAGE",
+              "DRAINAGE",
+              "ENCROACHMENT",
+              "PARK_MAINTENANCE",
+              "TRAFFIC",
+              "NOISE_COMPLAINT",
+              "BUILDING_CONSTRUCTION",
+              "STRAY_ANIMALS",
+              "TREE_MAINTENANCE",
+              "OTHER"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "description": "Priority level. Optional — defaults server-side when absent.",
+            "nullable": true,
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "CRITICAL"
+            ]
+          },
+          "addressText": {
+            "type": "string",
+            "description": "Human-readable address text provided by the citizen. Null when the submission omits location.",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "number",
+            "description": "GPS latitude of the reported issue location. Null when location is unknown.",
+            "format": "double",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "description": "GPS longitude of the reported issue location. Null when location is unknown.",
+            "format": "double",
+            "nullable": true
+          },
+          "departmentId": {
+            "type": "string",
+            "description": "Optional explicit department assignment. Null until department routing is implemented.",
+            "format": "uuid",
+            "nullable": true
+          },
+          "aiConfidence": {
+            "type": "number",
+            "description": "AI classification confidence score [0.0–1.0] forwarded from the /analyze step. Stored as-is — the platform does not recompute it. Null when the submission bypasses the analyze flow.",
+            "format": "double",
+            "nullable": true
+          },
+          "aiConversationId": {
+            "type": "string",
+            "description": "DEPRECATED — conversational AI session identifier. This field is a legacy remnant of a discontinued conversational AI flow. It has no replacement — standard submissions use the analyze→submit flow instead. The value is persisted as-is but has no downstream effect on routing or enrichment. Will be removed in a future release.",
+            "format": "uuid",
+            "nullable": true,
+            "deprecated": true
+          },
+          "visibilityScope": {
+            "type": "string",
+            "description": "Visibility scope for the service request. Optional — defaults to PRIVATE. The derived isPublic flag is computed server-side; clients must not send it.",
+            "nullable": true,
+            "enum": [
+              "PRIVATE",
+              "CITY_PUBLIC",
+              "WARD_PUBLIC"
+            ]
+          }
+        },
+        "description": "Request body for submitting a new civic service request. AI enrichment is applied server-side — clients may optionally forward the confidence score from a preceding /analyze call."
+      },
+      "ServiceRequestMediaResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable identifier for this media attachment.",
+            "format": "uuid"
+          },
+          "r2ObjectKey": {
+            "type": "string",
+            "description": "Cloudflare R2 object key for the stored media file."
+          },
+          "contentType": {
+            "type": "string",
+            "description": "MIME content type of the file (e.g. image/jpeg)."
+          },
+          "displayOrder": {
+            "type": "integer",
+            "description": "Ordering position for display; lower values appear first.",
+            "format": "int32"
+          }
+        },
+        "description": "Attached media file descriptor. Placeholder — media upload is not yet implemented. This type is reserved in the contract; the media list in ServiceRequestResponse is always empty."
+      },
+      "ServiceRequestResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable platform-generated identifier for this service request.",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "description": "Service request classification type. Always populated.",
+            "enum": [
+              "INQUIRY",
+              "ISSUE",
+              "COMPLAINT",
+              "EMERGENCY"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "description": "Short human-readable title of the service request. Always populated."
+          },
+          "description": {
+            "type": "string",
+            "description": "Full citizen-authored description of the reported issue. Always populated."
+          },
+          "category": {
+            "type": "string",
+            "description": "Issue category resolved by AI or defaulted to OTHER. Always populated.",
+            "enum": [
+              "WASTE_MANAGEMENT",
+              "ROAD_DAMAGE",
+              "WATER_SUPPLY",
+              "STREETLIGHT",
+              "SEWERAGE",
+              "DRAINAGE",
+              "ENCROACHMENT",
+              "PARK_MAINTENANCE",
+              "TRAFFIC",
+              "NOISE_COMPLAINT",
+              "BUILDING_CONSTRUCTION",
+              "STRAY_ANIMALS",
+              "TREE_MAINTENANCE",
+              "OTHER"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "description": "Priority assigned by AI enrichment or defaulted server-side. Always populated.",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "CRITICAL"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "description": "Current lifecycle status of the service request. Always populated.",
+            "enum": [
+              "OPEN",
+              "IN_PROGRESS",
+              "RESOLVED",
+              "CLOSED",
+              "REJECTED",
+              "DUPLICATE"
+            ]
+          },
+          "addressText": {
+            "type": "string",
+            "description": "Human-readable address text. Null when location routing found no formatted address.",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "number",
+            "description": "GPS latitude supplied at submission. Null when no coordinates were provided.",
+            "format": "double",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "description": "GPS longitude supplied at submission. Null when no coordinates were provided.",
+            "format": "double",
+            "nullable": true
+          },
+          "departmentId": {
+            "type": "string",
+            "description": "Assigned department identifier. Null until department routing is implemented.",
+            "format": "uuid",
+            "nullable": true
+          },
+          "wardId": {
+            "type": "string",
+            "description": "Canonical ward identifier resolved by location routing. Always populated.",
+            "format": "uuid"
+          },
+          "wardName": {
+            "type": "string",
+            "description": "Denormalized ward display label captured at routing time. Null when the ward-locator returned no name for the resolved ward.",
+            "nullable": true
+          },
+          "aiConfidence": {
+            "type": "number",
+            "description": "AI classification confidence score [0.0–1.0] forwarded from the citizen's analyze step. Advisory only — not authoritative. Null when submitted without AI enrichment.",
+            "format": "double",
+            "nullable": true
+          },
+          "isPublic": {
+            "type": "boolean",
+            "description": "True when visibilityScope resolves to PUBLIC. Derived server-side from visibilityScope — clients must not send this field."
+          },
+          "visibilityScope": {
+            "type": "string",
+            "description": "Visibility scope as submitted. Canonical authority on public/private semantics.",
+            "enum": [
+              "PRIVATE",
+              "CITY_PUBLIC",
+              "WARD_PUBLIC"
+            ]
+          },
+          "externalSyncStatus": {
+            "type": "string",
+            "description": "External sync state with the Salesforce case management system. Always populated.",
+            "enum": [
+              "PENDING",
+              "RETRYING",
+              "SYNCED",
+              "FAILED"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "UTC timestamp when the service request was created. Always populated.",
+            "format": "date-time"
+          },
+          "referenceNumber": {
+            "type": "string",
+            "description": "External Salesforce case reference. Null until external sync completes successfully. Deferred: populated via the event timeline until surfaced here as a first-class field.",
+            "nullable": true
+          },
+          "department": {
+            "type": "string",
+            "description": "Denormalized department display label. Always null — deferred to avoid N+1 queries on paginated lists. Resolve names client-side via GET /api/v1/governing-bodies/{id}/departments.",
+            "nullable": true
+          },
+          "mediaCount": {
+            "type": "integer",
+            "description": "Count of attached media files. Always 0 — media upload is not yet implemented. Guaranteed non-null to preserve FE numeric assumptions.",
+            "format": "int32"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "UTC timestamp of the most recent update. Always populated.",
+            "format": "date-time"
+          },
+          "resolvedAt": {
+            "type": "string",
+            "description": "UTC timestamp when the request reached RESOLVED or CLOSED status. Null until the request is resolved.",
+            "format": "date-time",
+            "nullable": true
+          },
+          "media": {
+            "type": "array",
+            "description": "Attached media files. Always an empty list — media upload is not yet implemented. Guaranteed non-null to prevent FE null-check regressions.",
+            "items": {
+              "$ref": "#/components/schemas/ServiceRequestMediaResponse"
+            }
+          }
+        },
+        "description": "Canonical service request representation returned by GET and POST operations. Nullable fields are explicitly noted; media and mediaCount are placeholder fields reserved for a future media-upload feature."
+      },
+      "AiServiceRequestAnalyzeRequest": {
+        "required": [
+          "description"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Optional title prepended to the description for richer classification context.",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "description": "Citizen-authored description of the issue to classify. The AI sidecar classifies this text into category, priority, and type."
+          },
+          "latitude": {
+            "type": "number",
+            "description": "GPS latitude for ward resolution. Optional — omit when location is unavailable. Classification is returned regardless; location will be null in the response.",
+            "format": "double",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "description": "GPS longitude for ward resolution. Optional — same semantics as latitude.",
+            "format": "double",
+            "nullable": true
+          }
+        },
+        "description": "Input for the AI enrichment preview step. Stateless — no data is persisted. Location coordinates are optional; their absence does not affect classification quality."
+      },
+      "AiServiceRequestAnalyzeResponse": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Suggested service request type. Always populated — falls back to COMPLAINT if the AI sidecar fails.",
+            "enum": [
+              "INQUIRY",
+              "ISSUE",
+              "COMPLAINT",
+              "EMERGENCY"
+            ]
+          },
+          "category": {
+            "type": "string",
+            "description": "Suggested issue category. Always populated — falls back to OTHER if classification is inconclusive.",
+            "enum": [
+              "WASTE_MANAGEMENT",
+              "ROAD_DAMAGE",
+              "WATER_SUPPLY",
+              "STREETLIGHT",
+              "SEWERAGE",
+              "DRAINAGE",
+              "ENCROACHMENT",
+              "PARK_MAINTENANCE",
+              "TRAFFIC",
+              "NOISE_COMPLAINT",
+              "BUILDING_CONSTRUCTION",
+              "STRAY_ANIMALS",
+              "TREE_MAINTENANCE",
+              "OTHER"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "description": "Suggested priority level. Always populated — falls back to a default if classification is inconclusive.",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "CRITICAL"
+            ]
+          },
+          "confidence": {
+            "type": "number",
+            "description": "Classification confidence score in [0.0–1.0]. Always present. Advisory — the platform does not enforce a minimum threshold for submission.",
+            "format": "double"
+          },
+          "suggestedDepartment": {
+            "type": "string",
+            "description": "Raw department hint returned by the AI sidecar. Informational only — not persisted or validated against the governance hierarchy. Null when the sidecar returns no department suggestion.",
+            "nullable": true
+          },
+          "location": {
+            "$ref": "#/components/schemas/WardLocationContext"
+          }
+        },
+        "description": "AI enrichment preview result for the analyze step. Enrichment-only — advisory and non-authoritative. No data is persisted by this call. Clients may forward the confidence score to the submission endpoint."
+      },
+      "WardLocationContext": {
+        "type": "object",
+        "properties": {
+          "wardNo": {
+            "type": "integer",
+            "description": "Numeric ward number. Null when the ward has no assigned number.",
+            "format": "int32",
+            "nullable": true
+          },
+          "wardName": {
+            "type": "string",
+            "description": "Ward display name. Null when the ward-locator returns no name.",
+            "nullable": true
+          }
+        },
+        "description": "Ward context resolved from GPS coordinates during the analyze step.",
+        "nullable": true
+      },
+      "AnnouncementCreateRequest": {
+        "required": [
+          "content",
+          "targetScope",
+          "title"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "maxLength": 300,
+            "minLength": 0,
+            "type": "string",
+            "description": "Announcement headline. Required."
+          },
+          "content": {
+            "type": "string",
+            "description": "Full announcement body text. Required."
+          },
+          "summary": {
+            "maxLength": 500,
+            "minLength": 0,
+            "type": "string",
+            "description": "Short summary for list views and notifications. Optional.",
+            "nullable": true
+          },
+          "category": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "description": "Operator-defined category label (e.g. 'infrastructure', 'health'). Optional.",
+            "nullable": true
+          },
+          "priority": {
+            "type": "string",
+            "description": "Priority level. Optional — defaults to NORMAL.",
+            "nullable": true,
+            "enum": [
+              "NORMAL",
+              "IMPORTANT",
+              "URGENT",
+              "CRITICAL"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "description": "Initial publication status. Optional — defaults to DRAFT. ARCHIVED and EXPIRED are system-managed and rejected on creation.",
+            "nullable": true,
+            "enum": [
+              "DRAFT",
+              "PUBLISHED",
+              "ARCHIVED",
+              "EXPIRED"
+            ]
+          },
+          "targetScope": {
+            "type": "string",
+            "description": "Geographic scope of this announcement. Required. Determines which citizens receive the announcement in their feed.",
+            "enum": [
+              "WARD",
+              "ZONE",
+              "CITY",
+              "DISTRICT",
+              "STATE"
+            ]
+          },
+          "wardId": {
+            "type": "string",
+            "description": "Ward identifier. Required when targetScope is WARD; null otherwise.",
+            "format": "uuid",
+            "nullable": true
+          },
+          "zoneId": {
+            "type": "string",
+            "description": "Zone identifier. Required when targetScope is ZONE; null otherwise.",
+            "format": "uuid",
+            "nullable": true
+          },
+          "cityId": {
+            "type": "string",
+            "description": "City identifier. Required when targetScope is CITY; null otherwise.",
+            "format": "uuid",
+            "nullable": true
+          },
+          "districtId": {
+            "type": "string",
+            "description": "District identifier. Required when targetScope is DISTRICT; null otherwise.",
+            "format": "uuid",
+            "nullable": true
+          },
+          "stateId": {
+            "type": "string",
+            "description": "State identifier. Required when targetScope is STATE; null otherwise.",
+            "format": "uuid",
+            "nullable": true
+          },
+          "expiresAt": {
+            "type": "string",
+            "description": "UTC expiry timestamp. Null means the announcement never auto-expires.",
+            "format": "date-time",
+            "nullable": true
+          },
+          "pinned": {
+            "type": "boolean",
+            "description": "When true, the announcement is pinned to the top of citizen feeds. Optional — defaults to false.",
+            "nullable": true
+          },
+          "tags": {
+            "type": "string",
+            "description": "Topic labels as a JSON array string (e.g. '[\"water\",\"road\"]'). Optional — stored verbatim.",
+            "nullable": true
+          }
+        },
+        "description": "Operator request to create a new civic announcement. Exactly one geographic FK field must be provided to match the targetScope. The service validates this invariant and returns HTTP 400 on violation."
+      },
+      "AnnouncementResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable platform-generated identifier for this announcement.",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "description": "Announcement headline."
+          },
+          "content": {
+            "type": "string",
+            "description": "Full announcement body text."
+          },
+          "summary": {
+            "type": "string",
+            "description": "Short summary for list views and notifications.",
+            "nullable": true
+          },
+          "category": {
+            "type": "string",
+            "description": "Operator-defined category label.",
+            "nullable": true
+          },
+          "priority": {
+            "type": "string",
+            "description": "Priority level.",
+            "enum": [
+              "NORMAL",
+              "IMPORTANT",
+              "URGENT",
+              "CRITICAL"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "description": "Current publication status. ARCHIVED and EXPIRED are system-managed transitions.",
+            "enum": [
+              "DRAFT",
+              "PUBLISHED",
+              "ARCHIVED",
+              "EXPIRED"
+            ]
+          },
+          "governingBodyId": {
+            "type": "string",
+            "description": "Canonical governing authority that owns this announcement.",
+            "format": "uuid"
+          },
+          "targetScope": {
+            "type": "string",
+            "description": "Geographic scope determining which citizens receive this announcement.",
+            "enum": [
+              "WARD",
+              "ZONE",
+              "CITY",
+              "DISTRICT",
+              "STATE"
+            ]
+          },
+          "wardId": {
+            "type": "string",
+            "description": "Ward identifier. Non-null only when targetScope is WARD.",
+            "format": "uuid",
+            "nullable": true
+          },
+          "zoneId": {
+            "type": "string",
+            "description": "Zone identifier. Non-null only when targetScope is ZONE.",
+            "format": "uuid",
+            "nullable": true
+          },
+          "cityId": {
+            "type": "string",
+            "description": "City identifier. Non-null only when targetScope is CITY.",
+            "format": "uuid",
+            "nullable": true
+          },
+          "districtId": {
+            "type": "string",
+            "description": "District identifier. Non-null only when targetScope is DISTRICT.",
+            "format": "uuid",
+            "nullable": true
+          },
+          "stateId": {
+            "type": "string",
+            "description": "State identifier. Non-null only when targetScope is STATE.",
+            "format": "uuid",
+            "nullable": true
+          },
+          "publishedAt": {
+            "type": "string",
+            "description": "UTC timestamp when the announcement was published. Null when status is DRAFT.",
+            "format": "date-time",
+            "nullable": true
+          },
+          "expiresAt": {
+            "type": "string",
+            "description": "UTC timestamp when the announcement auto-expires. Null means no automatic expiry.",
+            "format": "date-time",
+            "nullable": true
+          },
+          "pinned": {
+            "type": "boolean",
+            "description": "When true, the announcement is pinned to the top of citizen feeds."
+          },
+          "tags": {
+            "type": "string",
+            "description": "Topic labels stored as a JSON array string (e.g. '[\"water\",\"road\"]'). Null when no tags were supplied.",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "UTC creation timestamp.",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "UTC last-updated timestamp.",
+            "format": "date-time"
+          }
+        },
+        "description": "Full operator-facing announcement representation. Includes internal routing fields (geographic FKs, governingBodyId, status) not exposed in the citizen feed view."
+      },
+      "AiChatRequest": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Citizen or operator message to the AI assistant."
+          },
+          "conversationType": {
+            "type": "string",
+            "description": "Conversation type classifying the session context.",
+            "enum": [
+              "CITIZEN",
+              "EMPLOYEE"
+            ]
+          }
+        },
+        "description": "Input for the AI chat endpoint. Identity (userId, tenantId) is always server-derived from the JWT — never supply identity fields in the request body."
+      },
+      "AiChatResponse": {
+        "type": "object",
+        "properties": {
+          "conversationId": {
+            "type": "string",
+            "description": "Newly created conversation session identifier.",
+            "format": "uuid"
+          },
+          "reply": {
+            "type": "string",
+            "description": "AI-generated reply. Advisory — non-authoritative."
+          }
+        },
+        "description": "AI assistant reply. AI output is advisory enrichment only — it cannot alter lifecycle state or trigger escalations. Note: each call currently creates a new conversation session; client-supplied conversationId for session continuity is planned for a future release."
+      },
+      "ServiceRequestStatusUpdateRequest": {
+        "required": [
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Target lifecycle status. Must be a valid transition from the current status.",
+            "enum": [
+              "OPEN",
+              "IN_PROGRESS",
+              "RESOLVED",
+              "CLOSED",
+              "REJECTED",
+              "DUPLICATE"
+            ]
+          }
+        },
+        "description": "Operator request to transition a service request to a new lifecycle status."
+      },
+      "CitizenProfileResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Canonical platform user identity (User.id). Stable across all profile updates — not the UserProfile resource id.",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string",
+            "description": "Citizen email address sourced from the auth identity record.",
+            "nullable": true
+          },
+          "role": {
+            "type": "string",
+            "description": "Platform role: CITIZEN or OPERATOR. Not a Spring Security authority name."
+          },
+          "memberSince": {
+            "type": "string",
+            "description": "Account creation timestamp. Citizen-safe membership signal.",
+            "format": "date-time"
+          },
+          "fullName": {
+            "type": "string",
+            "description": "Citizen's full name from the civic profile.",
+            "nullable": true
+          },
+          "mobileNumber": {
+            "type": "string",
+            "description": "Citizen's mobile number used for OTP authentication.",
+            "nullable": true
+          },
+          "addressLine": {
+            "type": "string",
+            "description": "Free-text address line from the civic profile.",
+            "nullable": true
+          },
+          "pinCode": {
+            "type": "string",
+            "description": "Postal / PIN code (Indian convention). Stored as postalCode internally; exposed under the canonical mobile-facing name pinCode.",
+            "nullable": true
+          },
+          "wardId": {
+            "type": "string",
+            "description": "Canonical ward identifier. Authoritative reference into GET /governing-bodies/{id}/wards. Null when onboarding is incomplete.",
+            "nullable": true
+          },
+          "wardName": {
+            "type": "string",
+            "description": "Denormalized ward display label. Use for display only; wardId is authoritative.",
+            "nullable": true
+          },
+          "governingBodyId": {
+            "type": "string",
+            "description": "Canonical governing authority identifier for this citizen's ward.",
+            "nullable": true
+          },
+          "cityId": {
+            "type": "string",
+            "description": "Canonical city identifier resolved via the governance hierarchy.",
+            "nullable": true
+          },
+          "districtId": {
+            "type": "string",
+            "description": "Canonical district identifier resolved via the governance hierarchy.",
+            "nullable": true
+          },
+          "stateId": {
+            "type": "string",
+            "description": "Canonical state identifier resolved via the governance hierarchy.",
+            "nullable": true
+          },
+          "city": {
+            "type": "string",
+            "description": "Denormalized city display label. Use for display only.",
+            "nullable": true
+          },
+          "district": {
+            "type": "string",
+            "description": "Denormalized district display label. Use for display only.",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "description": "Denormalized state display label. Use for display only.",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "number",
+            "description": "GPS latitude from the citizen's civic profile.",
+            "format": "double",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "description": "GPS longitude from the citizen's civic profile.",
+            "format": "double",
+            "nullable": true
+          },
+          "onboardingComplete": {
+            "type": "boolean",
+            "description": "True when the citizen has completed the onboarding flow (ward resolved)."
+          },
+          "locality": {
+            "type": "string",
+            "description": "Sub-locality or neighbourhood within the ward. Deferred — always null until address normalization is extended.",
+            "nullable": true
+          },
+          "profileImageUrl": {
+            "type": "string",
+            "description": "Citizen profile photo URL. Deferred — always null until a media service is implemented.",
+            "nullable": true
+          },
+          "verified": {
+            "type": "boolean"
+          },
+          "appUserId": {
+            "type": "string",
+            "description": "DEPRECATED — use id. Backward-compatibility alias retained for one release cycle. Will be removed in a future release.",
+            "format": "uuid",
+            "deprecated": true
+          },
+          "postalCode": {
+            "type": "string",
+            "description": "DEPRECATED — use pinCode. Backward-compatibility alias retained for one release cycle. Will be removed in a future release.",
+            "nullable": true,
+            "deprecated": true
+          }
+        },
+        "description": "Citizen civic profile returned by GET /api/v1/users/me. Combines auth identity (from User) and civic profile (from UserProfile). The deprecated appUserId and postalCode aliases are emitted alongside canonical fields for backward compatibility."
+      },
+      "StateResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Canonical state identifier.",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "description": "State display name."
+          }
+        },
+        "description": "State lookup item for the governance discovery hierarchy. Use id to navigate to GET /api/v1/states/{stateId}/districts."
+      },
+      "DistrictResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Canonical district identifier.",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "description": "District display name."
+          }
+        },
+        "description": "District lookup item for the governance discovery hierarchy. Use id to navigate to GET /api/v1/districts/{districtId}/cities."
+      },
+      "PagedServiceRequestResponse": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "description": "Service request items for this page.",
+            "items": {
+              "$ref": "#/components/schemas/ServiceRequestResponse"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "description": "Canonical 0-based page index. Use this field — 'number' is a deprecated alias.",
+            "format": "int32",
+            "example": 0
+          },
+          "number": {
+            "type": "integer",
+            "description": "Backward-compatibility alias for 'page'. Deprecated — use 'page' instead. Will be removed in a future release.",
+            "format": "int32",
+            "example": 0,
+            "deprecated": true
+          },
+          "size": {
+            "type": "integer",
+            "description": "Number of items requested per page.",
+            "format": "int32",
+            "example": 20
+          },
+          "totalElements": {
+            "type": "integer",
+            "description": "Total number of items across all pages.",
+            "format": "int64",
+            "example": 142
+          },
+          "totalPages": {
+            "type": "integer",
+            "description": "Total number of pages available.",
+            "format": "int32",
+            "example": 8
+          },
+          "numberOfElements": {
+            "type": "integer",
+            "description": "Number of items in this page. May be less than 'size' on the last page.",
+            "format": "int32",
+            "example": 20
+          },
+          "first": {
+            "type": "boolean",
+            "description": "True when this is the first page (page == 0)."
+          },
+          "last": {
+            "type": "boolean",
+            "description": "True when this is the last page (page == totalPages - 1)."
+          },
+          "empty": {
+            "type": "boolean",
+            "description": "True when 'content' is empty."
+          }
+        },
+        "description": "Paginated list of service requests. Use 'page' for the canonical page index. The 'number' field is a deprecated alias for 'page' and will be removed in a future release."
+      },
+      "ServiceRequestEventResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable identifier for this audit event.",
+            "format": "uuid"
+          },
+          "eventType": {
+            "type": "string",
+            "description": "Event classification: CREATED, STATUS_UPDATED, SYNCED_TO_SALESFORCE, SYNC_FAILED."
+          },
+          "oldStatus": {
+            "type": "string",
+            "description": "Lifecycle status before this transition. Null for CREATED events.",
+            "nullable": true
+          },
+          "newStatus": {
+            "type": "string",
+            "description": "Lifecycle status after this transition. Always populated."
+          },
+          "actorType": {
+            "type": "string",
+            "description": "Actor category responsible for the event: USER (citizen submit), OPERATOR (status change), SYSTEM (sync worker). Always populated."
+          },
+          "actorUserId": {
+            "type": "string",
+            "description": "Platform userId of the actor. Null for SYSTEM-initiated events (sync worker).",
+            "format": "uuid",
+            "nullable": true
+          },
+          "notes": {
+            "type": "string",
+            "description": "Human-readable event context. SYNCED_TO_SALESFORCE: external case reference (e.g. '00001234'). SYNC_FAILED: error description. Null for CREATED and STATUS_UPDATED events.",
+            "nullable": true
+          },
+          "metadataJson": {
+            "type": "string",
+            "description": "Structured AI enrichment snapshot (JSON string). Populated only on CREATED events — records category, priority, confidence, and ward routing at submission time. This is the sole durable audit record of how the request was classified. Advisory/non-authoritative. Null for all other event types.",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "UTC timestamp when this event was recorded. Always populated.",
+            "format": "date-time"
+          },
+          "changedByRole": {
+            "type": "string",
+            "description": "DEPRECATED — use actorType. Backward-compatibility alias retained for one release cycle. Will be removed in a future release.",
+            "deprecated": true
+          },
+          "newValue": {
+            "type": "string",
+            "description": "DEPRECATED — use newStatus. Backward-compatibility alias retained for one release cycle. Will be removed in a future release.",
+            "deprecated": true
+          },
+          "oldValue": {
+            "type": "string",
+            "description": "DEPRECATED — use oldStatus. Backward-compatibility alias retained for one release cycle. Will be removed in a future release.",
+            "nullable": true,
+            "deprecated": true
+          }
+        },
+        "description": "Single immutable entry in a service request's audit timeline. Events are append-only and represent every state transition and sync outcome. The deprecated aliases (oldValue, newValue, changedByRole) are emitted alongside the canonical fields for backward compatibility and will be removed once clients migrate."
+      },
+      "ServiceRequestEventsResponse": {
+        "type": "object",
+        "properties": {
+          "serviceRequestId": {
+            "type": "string",
+            "description": "Identifier of the service request this timeline belongs to.",
+            "format": "uuid"
+          },
+          "referenceNumber": {
+            "type": "string",
+            "description": "External Salesforce case reference. Null until sync completes successfully. Deferred: currently recorded in the SYNCED_TO_SALESFORCE event notes field rather than as a first-class field here.",
+            "nullable": true
+          },
+          "events": {
+            "type": "array",
+            "description": "Ordered list of audit events, most recent last. Never null — may be empty.",
+            "items": {
+              "$ref": "#/components/schemas/ServiceRequestEventResponse"
+            }
+          }
+        },
+        "description": "Complete immutable audit timeline for a service request. Events are append-only and ordered chronologically."
+      },
+      "WardResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Canonical ward identifier. Use as wardId in UserProvisionRequest and ServiceRequestCreateRequest.",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "description": "Ward display name."
+          }
+        },
+        "description": "Ward lookup item for the governance discovery hierarchy. Wards are the atomic civic unit for announcement targeting, service request routing, and operator tenancy. Use id as the wardId in provisioning and service request submission."
+      },
+      "DepartmentResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Canonical department identifier within the governing body's scope.",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "description": "Department display name (e.g. 'Water Supply', 'Roads & Infrastructure')."
+          }
+        },
+        "description": "Department lookup item scoped to a governing body. Departments are governing-body-scoped — the same department code may exist under multiple governing bodies and must not be treated as globally unique. Use id as the departmentId in ServiceRequestCreateRequest."
+      },
+      "CityResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Canonical city identifier.",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "description": "City display name."
+          }
+        },
+        "description": "City lookup item for the governance discovery hierarchy. Use id to navigate to GET /api/v1/cities/{cityId}/governing-bodies. Only active cities are returned — inactive cities are filtered server-side."
+      },
+      "GoverningBodyResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Canonical governing authority identifier. This is the tenantId carried in operator JWTs and scopes all service requests.",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "description": "Governing body display name (e.g. 'Pune Municipal Corporation')."
+          }
+        },
+        "description": "Governing body lookup item for the governance discovery hierarchy. Use id to navigate to GET /api/v1/governing-bodies/{governingBodyId}/wards and GET /api/v1/governing-bodies/{governingBodyId}/departments. The governingBodyId is the canonical tenant identifier for all subsequent API calls."
+      },
+      "CitizenFeedResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable platform-generated identifier for this announcement.",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "description": "Announcement headline."
+          },
+          "content": {
+            "type": "string",
+            "description": "Full announcement body text."
+          },
+          "summary": {
+            "type": "string",
+            "description": "Short summary for list views and notifications.",
+            "nullable": true
+          },
+          "category": {
+            "type": "string",
+            "description": "Operator-defined category label.",
+            "nullable": true
+          },
+          "priority": {
+            "type": "string",
+            "description": "Priority level for visual prominence in the citizen feed.",
+            "enum": [
+              "NORMAL",
+              "IMPORTANT",
+              "URGENT",
+              "CRITICAL"
+            ]
+          },
+          "targetScope": {
+            "type": "string",
+            "description": "Geographic scope of this announcement. Use for rendering scope badges (e.g. WARD → 'Ward notice', CITY → 'City alert'). Does not expose the underlying geographic FK identifiers.",
+            "enum": [
+              "WARD",
+              "ZONE",
+              "CITY",
+              "DISTRICT",
+              "STATE"
+            ]
+          },
+          "publishedAt": {
+            "type": "string",
+            "description": "UTC timestamp when the announcement was published.",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "description": "UTC timestamp when the announcement expires. Null means no automatic expiry.",
+            "format": "date-time",
+            "nullable": true
+          },
+          "pinned": {
+            "type": "boolean",
+            "description": "When true, this announcement is pinned and should appear at the top of the feed."
+          },
+          "tags": {
+            "type": "string",
+            "description": "Topic labels as a JSON array string (e.g. '[\"water\",\"road\"]'). Null when no tags were supplied.",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "UTC creation timestamp.",
+            "format": "date-time"
+          }
+        },
+        "description": "Citizen-facing announcement shape returned by GET /api/v1/announcements/my-feed. Internal routing fields (geographic FKs, governingBodyId, status) are intentionally excluded. The targetScope label is retained so the mobile UI can render scope badges (e.g. 'Ward notice')."
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "description": "Bearer JWT. Accepted formats: Platform HS256 (operator — carries governingBodyId claim) or Supabase ES256 (citizen — no tenantId claim). Header: Authorization: Bearer <token>",
+        "in": "header",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

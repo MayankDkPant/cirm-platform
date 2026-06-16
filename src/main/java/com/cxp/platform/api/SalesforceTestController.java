@@ -2,12 +2,18 @@ package com.cxp.platform.api;
 
 import com.cxp.platform.integration.salesforce.client.SalesforceClient;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Local-dev smoke test for the Salesforce case creation integration.
+ * Gated to the "local" profile — not deployed or accessible in production.
+ */
+@Profile("local")
 @RestController
 @RequiredArgsConstructor
 public class SalesforceTestController {
